@@ -112,6 +112,8 @@ details summary{cursor:pointer;color:var(--teal)}
 .wwarn td{text-align:left;font-size:.72rem;border:0;padding:0 4px}
 @media print{body.pprint>*:not(.grid){display:none!important}body.pprint .tabs,body.pprint #partySubs,body.pprint #advSubs,body.pprint #advPickRow{display:none!important}}
 [hidden]{display:none!important}
+@media(min-width:861px){.grid.wide{grid-template-columns:minmax(0,1fr)}}
+.grid.wide>section.panel{display:none}
 .subtabs{display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid var(--line,#8884);padding-bottom:6px}
 .subtabs button[aria-selected="true"]{background:var(--gold,#d4a24a);color:#1a1206;font-weight:700}
 #pp-adv{display:flex;flex-direction:column;gap:10px}
@@ -208,7 +210,7 @@ details summary{cursor:pointer;color:var(--teal)}
 
   <aside class="panel" aria-label="Tools">
     <div class="tabs" role="tablist">
-      <button role="tab" id="t-dice" aria-selected="true">Dice</button>
+      <button role="tab" id="t-dice" aria-selected="true">Adventure</button>
       <button role="tab" id="t-party" aria-selected="false">Party</button>
       <button role="tab" id="t-quest" aria-selected="false">Quest</button>
       <button role="tab" id="t-shop" aria-selected="false">Shop</button>
@@ -245,7 +247,7 @@ details summary{cursor:pointer;color:var(--teal)}
       <div id="pp-adv">
         <div class="row" id="advPickRow" hidden><label>Adventurer <select id="advPick"></select></label></div>
         <div id="advRO" class="tiny" hidden>Viewing another player's sheet. It is read only.</div>
-        <div id="advSubs" class="subtabs" role="tablist"><button id="as-info" data-as="info" role="tab">Information</button><button id="as-abil" data-as="abil" role="tab">Abilities &amp; Classes</button><button id="as-race" data-as="race" role="tab">Race &amp; Background</button><button id="as-inv" data-as="inv" role="tab">Inventory</button><button id="as-full" data-as="full" role="tab">Full sheet</button><button id="advPrint" type="button">Print</button></div>
+        <div id="advSubs" class="subtabs" role="tablist"><button id="as-info" data-as="info" role="tab">Information</button><button id="as-abil" data-as="abil" role="tab">Abilities &amp; Classes</button><button id="as-race" data-as="race" role="tab">Race &amp; Background</button><button id="as-inv" data-as="inv" role="tab">Inventory</button><button id="as-full" data-as="full" role="tab">Full sheet</button></div>
         <div id="chars"></div>
         <div id="sheetBody"></div>
         <div class="row"><button id="addChar" class="primary">Add character</button></div>
@@ -487,7 +489,7 @@ var bar=null;
 function refreshBar(){
   if(!bar)return;
   var on=dmOnline();
-  var h='<span class="pill">'+esc(myName)+(isAdmin?" (admin)":"")+'</span>';
+  var h='<span class="pill">'+esc(myName)+(isAdmin?" (admin)":"")+'</span>';h+='<span class="pill" title="If this is older than the files you uploaded, press Ctrl+F5">build 4.1</span>';
   if(isAdmin)h+='<span class="pill '+(on?"on":"off")+'">'+(on?"DM seat active":"DM seat needs an API key")+'</span>';
   else h+='<span class="pill '+(on?"on":"off")+'">'+(on?"DM online":"DM offline")+'</span>';
   if(isAdmin)h+='<button id="lookBtn">Look</button>';
@@ -778,9 +780,10 @@ var GUIDE="[[GUIDE]]";
 
 /* ---------- state ---------- */
 var db=null, sample=null, me=null;
-var S={episode:0,sitting:"A",scene:"calm",shards:0,quests:[],summary:"",busy:null,terrain:"road",combat:null,ginv:null,shopCfg:null,missions:null,missionCfg:null};
+var S={episode:0,sitting:"A",scene:"calm",shards:0,quests:[],summary:"",busy:null,terrain:"road",combat:null,ginv:null,shopCfg:null,missions:null,missionCfg:null,solo:null,soloM:null};
 window.__S=function(){return S};
-var logs=[], chars=[];
+var logs=[], chars=[], allChars=[], lastSolo=null;
+function soloView(){var sl=S.solo&&S.solo.id&&allChars.filter(function(x){return x.id===S.solo.id})[0];return sl?[sl]:allChars}
 var sceneOver=null, TERRS_OK=["road","fields","woods","mountain","town","cave"];
 
 function setStatus(t){$("status").textContent=t||""}
@@ -1397,7 +1400,7 @@ function iconUrl(name){
 }
 
 /* ---------- characters ---------- */
-window.__party=function(){return chars};window.__logs=function(){return logs};
+window.__party=function(){return allChars.length?allChars:chars};window.__logs=function(){return logs};
 var UIS={};
 function ui(id){return UIS[id]||(UIS[id]={abil:false,more:false,cls:{}})}
 function saveChar(c){ if(!db)return; var d=JSON.parse(JSON.stringify(c)); var id=d.id; delete d.id; return db.doc("chars/"+id).set(d).catch(function(e){setStatus("Could not save sheet: "+(e&&e.message||e))})}
@@ -1849,7 +1852,8 @@ $("rollBtn").onclick=function(){
 /* ---------- DM brain ---------- */
 function busy(){return S.busy&&Date.now()-S.busy.at<90000}
 var stPending=0,stDeferred=null;
-function applySnap(d){S=Object.assign({episode:0,sitting:"A",scene:"calm",shards:0,quests:[],summary:"",busy:null,terrain:"road",combat:null,ginv:null,shopCfg:null,missions:null,missionCfg:null},JSON.parse(JSON.stringify(d||{}))); renderQuest(); try{renderGinv();renderMissions()}catch(e){} if(!sceneOver)setScene(S.scene); if($("terrSel"))$("terrSel").value=S.terrain||"road"; if(window.__sceneRedraw)window.__sceneRedraw(); renderCombat();}
+function applySnap(d){S=Object.assign({episode:0,sitting:"A",scene:"calm",shards:0,quests:[],summary:"",busy:null,terrain:"road",combat:null,ginv:null,shopCfg:null,missions:null,missionCfg:null,solo:null,soloM:null},JSON.parse(JSON.stringify(d||{}))); chars=soloView();renderQuest(); try{renderGinv();renderMissions()}catch(e){}
+  var sk=S.solo&&S.solo.id||"";if(sk!==lastSolo){lastSolo=sk;try{renderChars()}catch(e){}} if(!sceneOver)setScene(S.scene); if($("terrSel"))$("terrSel").value=S.terrain||"road"; if(window.__sceneRedraw)window.__sceneRedraw(); renderCombat();}
 function saveState(p){Object.assign(S,p); if(!db)return Promise.resolve(); stPending++; return db.doc("state/main").set(JSON.parse(JSON.stringify(S))).catch(function(e){setStatus("Could not save state: "+(e&&e.message||e))}).then(function(){stPending--; if(stPending<=0){stPending=0; if(stDeferred){var d=stDeferred;stDeferred=null;applySnap(d)} else renderCombat()}})}
 function partyText(){return chars.map(function(c){var d=derive(c);return c.name+" ("+(c.player||"player")+", "+(c.race||"?")+"; "+(c.classes||[]).map(function(k){return k.name+" "+k.level}).join(", ")+"; HP "+d.hp+", MP "+d.mp+"; Fort "+d.fort+", Will "+d.will+")"}).join("\n")||"(no characters yet)"}
 function recent(n){return logs.slice(-n).map(function(m){return (m.kind==="dm"?"DM":m.kind==="roll"?"ROLL":m.kind==="coach"?"COACH":m.kind==="sys"?"TABLE":(m.who||"Player"))+": "+m.text}).join("\n")}
@@ -1862,7 +1866,7 @@ async function dmTurn(text,mode,force,retried){
   dmInflight=true;$("sendBtn").disabled=true; setStatus("The DM is thinking..."); await saveState({busy:{by:me||"?",at:Date.now()}});
   var prompt=["You are the Dungeon Master for a Sword World 2.5 tabletop game played on a shared web page. Narrate in second person plural or by character name, vivid but brief (60-140 words), with light humor and occasional real weight. Never decide the players' actions or roll their dice; instead request rolls with a Target Number. Explain a rule only when it is unique to Sword World 2.5 and first comes up. Keep secrets secret. Always set terrain to the landscape the party is in now (it drives the animated backdrop). Use combat.state \"start\" on the turn a fight begins, naming 1-5 monsters with simple words such as goblin, kobold, wolf, bat, slime, skeleton, bandit, boar, ogre; use \"end\" on the turn it ends, with outcome \"defeated\" or \"fled\"; otherwise \"none\".",
    "RULES:\n"+RULES,"CAMPAIGN (DM only):\n"+GUIDE,"PARTY:\n"+partyText(),
-   "STATE: episode "+S.episode+", sitting "+S.sitting+", scene "+S.scene+", terrain "+(S.terrain||"road")+", "+(S.combat&&S.combat.on?"IN COMBAT with "+(S.combat.mons||[]).join(", "):"no combat")+", sword shards "+S.shards+"\nQUESTS: "+(S.quests||[]).map(function(q){return (q.done?"[done] ":"")+q.text}).join("; ")+"\nSTORY SO FAR: "+(S.summary||"(nothing yet)"),missionPrompt(),
+   "STATE: episode "+S.episode+", sitting "+S.sitting+", scene "+S.scene+", terrain "+(S.terrain||"road")+", "+(S.combat&&S.combat.on?"IN COMBAT with "+(S.combat.mons||[]).join(", "):"no combat")+", sword shards "+S.shards+"\nQUESTS: "+(S.quests||[]).map(function(q){return (q.done?"[done] ":"")+q.text}).join("; ")+"\nSTORY SO FAR: "+(S.summary||"(nothing yet)"),missionPrompt(),soloPrompt(),
    "RECENT LOG:\n"+recent(14),"NEW INPUT: "+text,
    'Reply with ONLY a JSON object: {"narration":"text to read aloud","scene":"one of tavern|forest|dungeon|battle|mystery|calm|tension|travel","terrain":"where the party is right now, one of road|fields|woods|mountain|town|cave","combat":{"state":"none|start|end","monsters":["1-5 names"],"outcome":"defeated|fled"},"rolls":[{"who":"character name","check":"skill name","tn":9,"why":"short reason"}],"summary":"updated 2-4 sentence story so far","shards":0,"quest_add":["optional new lead"],"rules_note":"optional one-sentence rules reminder, empty if none","mission_steps":["optional ids from ACTIVE MISSION STEPS that the story just completed"]}'].join("\n\n");
   try{
@@ -2866,7 +2870,6 @@ function advAfter(){
 $("partySubs").addEventListener("click",function(ev){var b=ev.target.closest&&ev.target.closest("[data-ps]");if(!b)return;ADV.psub=b.dataset.ps;pUi();advAfter()});
 $("advSubs").addEventListener("click",function(ev){var b=ev.target.closest&&ev.target.closest("[data-as]");if(!b)return;ADV.sub=b.dataset.as;pUi()});
 $("advPick").addEventListener("change",function(){advSelect(this.value)});
-$("advPrint").onclick=function(){ADV.sub="full";pUi();document.body.classList.add("pprint");setTimeout(function(){try{window.print()}catch(e){}document.body.classList.remove("pprint")},60)};
 
 /* ---------- inventory line helpers (lines look like "- Healing Potion (30 G) x2") ---------- */
 function lnLines(s){return String(s||"").split("\n").filter(function(x){return x.trim()})}
@@ -3085,16 +3088,17 @@ var MISSIONS0=[
  {id:"m15",title:"The Ogre at Miller's Ford",desc:"An ogre has taken the ford and nobody can cross. This is a real fight. Prepare.",min:3,max:3,obj:[{k:"kill",n:1,name:"ogre"}],rw:{gold:400,xp:400,shards:1,items:["Healing Potion"]}}
 ];
 function MISS(){var c=S.missionCfg;return c&&Array.isArray(c.list)?c.list:MISSIONS0}
-function msGet(){var m=S.missions||{};return {act:m.act||[],done:m.done||[],cnt:m.cnt||[]}}
-function msSave(m){return saveState({missions:m})}
+function soloOn(){return !!(S.solo&&S.solo.id&&chars.length===1&&chars[0].id===S.solo.id)}
+function msGet(){var m=soloOn()?((S.soloM||{})[S.solo.id]||{}):(S.missions||{});return {act:m.act||[],done:m.done||[],cnt:m.cnt||[]}}
+function msSave(m){if(soloOn()){var sm=JSON.parse(JSON.stringify(S.soloM||{}));sm[S.solo.id]=m;return saveState({soloM:sm})}return saveState({missions:m})}
 function mFind(id){return MISS().filter(function(x){return x.id===id})[0]}
-function partyCount(name){var n=0,t=String(name).toLowerCase();chars.forEach(function(c){invLines(c).forEach(function(l){if(invName(l).toLowerCase()===t)n+=lnQty(l)})});lnLines(gInv().inv).forEach(function(l){if(invName(l).toLowerCase()===t)n+=lnQty(l)});return n}
+function partyCount(name){var n=0,t=String(name).toLowerCase();chars.forEach(function(c){invLines(c).forEach(function(l){if(invName(l).toLowerCase()===t)n+=lnQty(l)})});if(!soloOn())lnLines(gInv().inv).forEach(function(l){if(invName(l).toLowerCase()===t)n+=lnQty(l)});return n}
 function objDone(a,o,i){return o.k==="kill"?(+a.p[i]||0)>=o.n:o.k==="item"?partyCount(o.name)>=o.n:!!a.p[i]}
 function objText(o){return o.k==="kill"?"kill "+o.n+" "+o.name:o.k==="item"?"item "+o.n+" "+o.name:"step "+o.text}
 function objParse(l){l=String(l).trim();var m;if(m=l.match(/^kill\s+(\d+)\s*(.*)$/i))return {k:"kill",n:+m[1],name:m[2].trim().toLowerCase()};if(m=l.match(/^item\s+(\d+)\s+(.+)$/i))return {k:"item",n:+m[1],name:m[2].trim()};if(m=l.match(/^step\s+(.+)$/i))return {k:"step",text:m[1].trim()};return null}
 function takeParty(name,n){var t=String(name).toLowerCase(),left=n;
-  var g=gInv(),gl=lnLines(g.inv);for(var i=0;i<gl.length&&left>0;i++){if(invName(gl[i]).toLowerCase()===t){var q=Math.min(left,lnQty(gl[i]));lnTake(gl,i,q);left-=q;i--}}
-  if(left<n)saveG(gl.join("\n"),g.gold);
+  var g=gInv(),gl=soloOn()?[]:lnLines(g.inv);for(var i=0;i<gl.length&&left>0;i++){if(invName(gl[i]).toLowerCase()===t){var q=Math.min(left,lnQty(gl[i]));lnTake(gl,i,q);left-=q;i--}}
+  if(left<n&&!soloOn())saveG(gl.join("\n"),g.gold);
   chars.forEach(function(c){if(left<=0)return;var ls=invLines(c),ch=false;for(var i=0;i<ls.length&&left>0;i++){if(invName(ls[i]).toLowerCase()===t){var q=Math.min(left,lnQty(ls[i]));lnTake(ls,i,q);left-=q;i--;ch=true}}if(ch){c.inv=ls.join("\n");saveChar(c)}})}
 function rwText(r){var p=[];if(r.gold)p.push(fmt(r.gold)+" G");if(r.xp)p.push(fmt(r.xp)+" XP each");if(r.shards)p.push(r.shards+" sword shard"+(r.shards>1?"s":""));(r.items||[]).forEach(function(i){p.push(i)});return p.join(", ")||"none"}
 function missionKills(foes,combatId){
@@ -3113,12 +3117,14 @@ function msComplete(id){
   var m=msGet(),a=m.act.filter(function(x){return x.id===id})[0],ms=mFind(id);if(!a||!ms)return;
   if(!ms.obj.every(function(o,i){return objDone(a,o,i)})){setStatus("That mission is not finished yet.");return}
   ms.obj.forEach(function(o){if(o.k==="item")takeParty(o.name,o.n)});
-  var g=gInv(),gl=lnLines(g.inv),r=ms.rw||{};(r.items||[]).forEach(function(s){var q=s.match(/^(.*?)\s+x(\d+)$/);lnPut(gl,q?q[1]:s,q?+q[2]:1)});
+  var r=ms.rw||{},solo=soloOn();
+  if(solo){var c0=chars[0],ls0=invLines(c0);(r.items||[]).forEach(function(s){var q=s.match(/^(.*?)\s+x(\d+)$/);lnPut(ls0,q?q[1]:s,q?+q[2]:1)});c0.inv=ls0.join("\n");c0.cash=(+c0.cash||0)+(+r.gold||0);c0.xp=(+c0.xp||0)+(+r.xp||0);saveChar(c0)}
+  else{var g=gInv(),gl=lnLines(g.inv);(r.items||[]).forEach(function(s){var q=s.match(/^(.*?)\s+x(\d+)$/);lnPut(gl,q?q[1]:s,q?+q[2]:1)});
   saveG(gl.join("\n"),g.gold+(+r.gold||0));
-  if(+r.xp)chars.forEach(function(c){if(!c.dead){c.xp=(+c.xp||0)+(+r.xp);saveChar(c)}});
+  if(+r.xp)chars.forEach(function(c){if(!c.dead){c.xp=(+c.xp||0)+(+r.xp);saveChar(c)}})}
   var nm={act:m.act.filter(function(x){return x.id!==id}),done:m.done.concat([id]),cnt:m.cnt};msSave(nm);
   if(+r.shards)saveState({shards:(+S.shards||0)+(+r.shards)});
-  slog("Mission complete: "+ms.title+"! Rewards: "+rwText(r)+". Gold and items went to the group inventory.");setStatus("Mission complete: "+ms.title+".")}
+  slog("Mission complete: "+ms.title+"! Rewards: "+rwText(r)+(solo?". Everything went to "+chars[0].name+".":". Gold and items went to the group inventory."));setStatus("Mission complete: "+ms.title+".")}
 function missionCard(ms,a,done){
   var h='<div class="card"><h4 style="margin:0">'+esc(ms.title)+' <span class="chip">Lv '+ms.min+(ms.max!==ms.min?'-'+ms.max:'')+'</span></h4><div class="tiny">'+esc(ms.desc)+'</div>';
   h+='<ul style="margin:6px 0 6px 18px;padding:0">'+ms.obj.map(function(o,i){
@@ -3133,18 +3139,30 @@ function missionCard(ms,a,done){
     else h+='<button class="primary" data-ms="acc" data-id="'+esc(ms.id)+'"'+(msGet().act.length>=3?' disabled title="3 missions are already active"':'')+'>Accept</button>';
     h+='</div>'}
   return h+'</div>'}
+function soloPanel(){
+  if(soloOn())return '<div class="card"><b>Solo run: '+esc(chars[0].name)+'</b><div class="tiny">The rest of the party is away. The DM runs short scenes for one adventurer, and rewards go only to '+esc(chars[0].name)+'.</div><div class="row"><button data-ms="soloend">End solo run</button></div></div>';
+  var mine=allChars.filter(canAct);if(!mine.length)return '';
+  return '<div class="card"><b>Solo run</b><div class="tiny">Playing alone? Send one adventurer out for DM-run scenes and missions of their own. The DM page must be open. Only that adventurer earns the rewards.</div><div class="row"><label>Adventurer<select id="soloWho">'+mine.map(function(x){return '<option value="'+esc(x.id)+'">'+esc(x.name||"New adventurer")+'</option>'}).join("")+'</select></label><button class="primary" data-ms="solostart">Start solo run</button></div></div>'}
+function soloPrompt(){if(!soloOn())return "";var m=msGet(),ls=m.act.map(function(a){var ms=mFind(a.id);return ms?ms.title+": "+ms.desc:""}).filter(Boolean);
+  return "SOLO MODE: only "+chars[0].name+" is adventuring; the other heroes are away. Run short scenes at their level with 1-3 weak monsters at a time, give them room to act, and steer toward their active solo missions: "+(ls.join(" | ")||"none yet (offer a small local job)")}
 function renderMissions(){
   var b=$("missionBox");if(!b)return;var m=msGet(),L=MISS();
   var act=m.act.map(function(a){return {a:a,ms:mFind(a.id)}}).filter(function(x){return x.ms});
   var av=L.filter(function(x){return m.done.indexOf(x.id)<0&&!m.act.some(function(a){return a.id===x.id})});
   var dn=L.filter(function(x){return m.done.indexOf(x.id)>=0});
-  b.innerHTML='<div class="tiny">The party can hold up to 3 missions. Rewards: gold and items go to the group inventory, XP to every hero, shards to the shared total. Kills and items count automatically; story steps are ticked when the DM narrates them.</div>'+
+  b.innerHTML=soloPanel()+'<div class="tiny">'+(soloOn()?'Solo missions: only '+esc(chars[0].name)+' earns the rewards, and nothing here changes the party missions.':'')+' The party can hold up to 3 missions. Rewards: gold and items go to the group inventory, XP to every hero, shards to the shared total. Kills and items count automatically; story steps are ticked when the DM narrates them.</div>'+
    '<h4>Active ('+act.length+'/3)</h4>'+(act.length?act.map(function(x){return missionCard(x.ms,x.a)}).join(""):'<div class="tiny">No active missions. Accept one below.</div>')+
    '<h4>Available</h4>'+(av.length?av.map(function(x){return missionCard(x)}).join(""):'<div class="tiny">Nothing posted right now.</div>')+
    (dn.length?'<details><summary>Completed ('+dn.length+')</summary>'+dn.map(function(x){return missionCard(x,null,true)}).join("")+'</details>':'')}
 document.addEventListener("click",function(ev){
   var el=ev.target.closest&&ev.target.closest("[data-ms]");if(!el||!$("missionBox").contains(el))return;var f=el.dataset.ms,id=el.dataset.id;
+  if(f==="solostart"){soloStart();return}if(f==="soloend"){soloEnd();return}
   if(f==="acc")msAccept(id);else if(f==="drop")msAbandon(id);else if(f==="done")msComplete(id);else if(f==="step")missionSteps([id+"#"+el.dataset.i])});
+function soloStart(){var sel=$("soloWho"),id=sel&&sel.value,c=allChars.filter(function(x){return x.id===id})[0];if(!c||!canAct(c))return;
+  if(cbOn()){setStatus("Finish the fight before starting a solo run.");return}
+  saveState({solo:{id:id}});chars=soloView();slog(c.name+" ventures out alone while the rest of the party is away.");renderChars();renderMissions();
+  dmTurn("SOLO RUN begins: "+c.name+" sets out alone. Open a short scene for their active solo mission (or a small local job if they have none) and ask what they do.","play",false)}
+function soloEnd(){if(cbOn()){setStatus("Finish the fight before ending the solo run.");return}var c=chars[0];saveState({solo:null});chars=soloView();slog((c?c.name:"The adventurer")+" returns to the party. The solo run is over.");renderChars();renderMissions()}
 window.__missions={get:function(){return MISS()},set:function(l){return saveState({missionCfg:{list:l}})},reset:function(){return saveState({missionCfg:null})},parse:objParse,text:objText,kills:missionKills,steps:missionSteps};
 
 /* ---------- boot ---------- */
@@ -3156,7 +3174,7 @@ kindUi(); render(); renderQuest(); refreshPickers();
     clearTimeout(t); var prev=logs.length; logs=sn.docs.map(function(d){return d.data()}); render();
     sn.docChanges().forEach(function(ch){var m=ch.doc.data(); if(ch.type==="added"&&m.kind==="dm"&&m.ts>=LOADED-1500)speak(m.text)});
   },function(e){setStatus("Cannot read the log: "+(e&&e.message||e))});
-  db.collection("chars").onSnapshot(function(sn){try{chars=sn.docs.map(function(d){var x=JSON.parse(JSON.stringify(d.data()||{}));x.id=d.id;return x}); renderChars()}catch(e){setStatus("Could not show characters: "+(e&&e.message||e))}},function(e){setStatus("Cannot read characters: "+(e&&e.message||e))});
+  db.collection("chars").onSnapshot(function(sn){try{allChars=sn.docs.map(function(d){var x=JSON.parse(JSON.stringify(d.data()||{}));x.id=d.id;return x}); chars=soloView(); renderChars()}catch(e){setStatus("Could not show characters: "+(e&&e.message||e))}},function(e){setStatus("Cannot read characters: "+(e&&e.message||e))});
   db.doc("state/main").onSnapshot(function(sn){ if(!sn.exists)return; var d=sn.data()||{}; if(stPending>0){stDeferred=d;return} applySnap(d); });
 })();
 })();
