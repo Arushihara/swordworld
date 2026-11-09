@@ -264,6 +264,8 @@ details summary{cursor:pointer;color:var(--teal)}
         <label>Backdrop <select id="terrSel"><option>road</option><option>fields</option><option>woods</option><option>mountain</option><option>town</option><option>cave</option></select></label>
       </div>
       <div class="row"><button id="fightBtn" type="button">Preview a fight</button><button id="fightEnd" type="button">End fight</button></div>
+      <h3 style="font-size:17px">Missions</h3>
+      <div id="missionBox"></div>
       <h3 style="font-size:17px">Quest log</h3>
       <div id="quests"></div>
       <div class="row"><input id="qnew" type="text" placeholder="Add a quest or lead" style="flex:1"><button id="qadd">Add</button></div>
@@ -488,11 +490,12 @@ function refreshBar(){
   var h='<span class="pill">'+esc(myName)+(isAdmin?" (admin)":"")+'</span>';
   if(isAdmin)h+='<span class="pill '+(on?"on":"off")+'">'+(on?"DM seat active":"DM seat needs an API key")+'</span>';
   else h+='<span class="pill '+(on?"on":"off")+'">'+(on?"DM online":"DM offline")+'</span>';
+  if(isAdmin)h+='<button id="lookBtn">Look</button>';
   if(isAdmin)h+='<button id="admBtn">Admin'+(backupDue()?'<span class="dot" title="Download a backup"></span>':'')+'</button>';
   h+='<button id="outBtn">Sign out</button>';
   bar.innerHTML=h;
   var o=g("outBtn");if(o)o.onclick=function(){auth.signOut().then(function(){location.reload()})};
-  var a=g("admBtn");if(a)a.onclick=openAdmin;
+  var a=g("admBtn");if(a)a.onclick=openAdmin;var lb=g("lookBtn");if(lb)lb.onclick=openLook;
 }
 function backupDue(){var last=+lsGet("sw_lastBackup")||0;var d=window.__logs?window.__logs():[];return d.some(function(m){return m.ts>last})}
 
@@ -503,7 +506,7 @@ function finish(){
   refreshBar();setInterval(refreshBar,10000);
   var db={collection:function(p){var c=fs.collection(p);return {orderBy:function(a,b){return c.orderBy(a,b)},onSnapshot:function(a,b){return c.onSnapshot(a,b)},add:function(o){return c.add(clean(o))}}},
           doc:function(p){var d=fs.doc(p);return {set:function(o){return d.set(clean(o))},delete:function(){return d.delete()},onSnapshot:function(a,b){return d.onSnapshot(a,b)}}}};
-  watchPresence();
+  watchPresence();startLook();
   if(isAdmin)startDmSeat();
   var sample=function(prompt){return isAdmin?callAnthropic(prompt):remoteSample(prompt)};
   resolveReady({db:db,sample:sample,me:me,isAdmin:isAdmin,name:myName});
@@ -525,6 +528,15 @@ function renderAdmin(){
    '<div class="row"><button id="admKeySave" class="primary">Save</button><button id="admTest">Test the DM</button></div></section>'+
    '<section><h3>Campaign guide (DM only)</h3><div class="tiny">The hidden story notes the DM uses. They live only in your admin-only data, not in the web page. Load dm-guide.txt from your zip once, or paste your own.</div>'+
    '<textarea id="admGuide" rows="5" placeholder="loading..." style="width:100%"></textarea><div class="row"><button id="admGuideSave">Save guide</button><label style="flex-direction:row;align-items:center;gap:6px;text-transform:none;letter-spacing:0">Load from file <input id="admGuideFile" type="file" accept=".txt,text/plain"></label></div></section>'+
+   '<section><h3>Shop prices</h3><div class="tiny">What a combat feat costs, and prices for items that have none (so players can sell them for half). Items already in the shop keep their book prices unless you list them here.</div>'+
+   '<div class="row"><label>CR I feat<input id="admFI" type="number" min="1" style="width:90px"></label><label>CR II feat<input id="admFII" type="number" min="1" style="width:90px"></label><label>CR III feat<input id="admFIII" type="number" min="1" style="width:90px"></label></div>'+
+   '<label>Sell prices, one per line as Item name = price<textarea id="admSell" rows="4" style="width:100%" placeholder="Goblin Ear = 10"></textarea></label><div class="row"><button id="admShopSave">Save shop prices</button></div></section>'+
+   '<section><h3>Missions</h3><div class="tiny">Edit the missions on the Quest tab. Objectives, one per line: <code>kill 4 goblin</code>, <code>item 3 Lifegrass</code> or <code>step Find the key</code>. Reward items are comma separated, like <code>Healing Potion, Lifegrass x2</code>.</div>'+
+   '<div class="row"><select id="admMs" style="flex:1"></select><button id="admMsNew">New mission</button></div>'+
+   '<div id="admMsForm"><label>Title<input id="msT"></label><label>Description<textarea id="msD" rows="2" style="width:100%"></textarea></label>'+
+   '<div class="row"><label>Min level<input id="msMin" type="number" min="1" style="width:70px"></label><label>Max level<input id="msMax" type="number" min="1" style="width:70px"></label><label>Gold<input id="msG" type="number" min="0" style="width:80px"></label><label>XP each<input id="msX" type="number" min="0" style="width:80px"></label><label>Shards<input id="msS" type="number" min="0" style="width:70px"></label></div>'+
+   '<label>Reward items<input id="msI" style="width:100%"></label><label>Objectives<textarea id="msO" rows="3" style="width:100%"></textarea></label>'+
+   '<div class="row"><button id="msSave" class="primary">Save mission</button><button id="msDel">Delete mission</button><button id="msReset">Restore the starter list</button></div></div></section>'+
    '<section><h3>Players and characters</h3><div id="admPeople" class="tiny">loading...</div></section>'+
    '<section><h3>Backup</h3><div class="tiny">One file with the campaign state, all characters and the story log. Download one after every session.</div>'+
    '<div class="row"><button id="admDl" class="primary">Download backup</button><label style="flex-direction:row;align-items:center;gap:6px;text-transform:none;letter-spacing:0">Restore from backup <input id="admUp" type="file" accept=".json,application/json"></label></div>'+
@@ -532,6 +544,28 @@ function renderAdmin(){
   g("admX").onclick=function(){adm.style.display="none";refreshBar()};
   fs.doc("config/table").get().then(function(s){g("admCode").value=s.exists?(s.data().code||""):"";g("admCode").placeholder=""});
   g("admCodeSave").onclick=function(){var c=g("admCode").value.trim();if(!c){note("The table code cannot be empty.",1);return}fs.doc("config/table").set({code:c}).then(function(){note("Table code saved.")},function(e){note(errText(e),1)})};
+  (function(){var sc=window.__shopCfg&&window.__shopCfg.get();if(!sc)return;g("admFI").value=sc.feat.I;g("admFII").value=sc.feat.II;g("admFIII").value=sc.feat.III;g("admSell").value=Object.keys(sc.sell).map(function(k){return k+" = "+sc.sell[k]}).join("\n")})();
+  g("admShopSave").onclick=function(){var sell={};g("admSell").value.split("\n").forEach(function(l){var i=l.lastIndexOf("=");if(i<1)return;var n=l.slice(0,i).trim(),v=+l.slice(i+1).trim();if(n&&v>0)sell[n]=Math.round(v)});
+    var f=function(id,d){var v=+g(id).value;return v>0?Math.round(v):d};
+    Promise.resolve(window.__shopCfg.set({feat:{I:f("admFI",500),II:f("admFII",1500),III:f("admFIII",4000)},sell:sell})).then(function(){note("Shop prices saved.")},function(e){note(errText(e),1)})};
+  (function(){
+    var M=window.__missions,cur=null;if(!M)return;
+    function list(){return M.get().map(function(x){return JSON.parse(JSON.stringify(x))}).slice()}
+    function fill(id){var L=list(),m=L.filter(function(x){return x.id===id})[0];cur=m?m.id:null;
+      g("msT").value=m?m.title:"";g("msD").value=m?m.desc:"";g("msMin").value=m?m.min:1;g("msMax").value=m?m.max:3;
+      var r=m?m.rw||{}:{};g("msG").value=r.gold||0;g("msX").value=r.xp||0;g("msS").value=r.shards||0;g("msI").value=(r.items||[]).join(", ");g("msO").value=m?m.obj.map(M.text).join("\n"):""}
+    function sel(id){var L=list();g("admMs").innerHTML=L.map(function(x){return '<option value="'+esc(x.id)+'"'+(x.id===id?" selected":"")+'>'+esc(x.title)+'</option>'}).join("");fill(id||(L[0]&&L[0].id))}
+    sel();g("admMs").onchange=function(){fill(this.value)};
+    g("admMsNew").onclick=function(){cur=null;["msT","msD","msI","msO"].forEach(function(i){g(i).value=""});g("msMin").value=1;g("msMax").value=3;g("msG").value=100;g("msX").value=100;g("msS").value=0};
+    g("msSave").onclick=function(){
+      var t=g("msT").value.trim();if(!t){note("Give the mission a title.",1);return}
+      var obj=g("msO").value.split("\n").map(M.parse).filter(Boolean);if(!obj.length){note("Add at least one objective (kill, item or step).",1);return}
+      var m={id:cur||"c"+Date.now().toString(36),title:t,desc:g("msD").value.trim(),min:+g("msMin").value||1,max:+g("msMax").value||1,obj:obj,rw:{gold:+g("msG").value||0,xp:+g("msX").value||0,shards:+g("msS").value||0,items:g("msI").value.split(",").map(function(x){return x.trim()}).filter(Boolean)}};
+      var L=list(),i=L.findIndex(function(x){return x.id===m.id});if(i>=0)L[i]=m;else L.push(m);
+      Promise.resolve(M.set(L)).then(function(){sel(m.id);note("Mission saved.")},function(e){note(errText(e),1)})};
+    g("msDel").onclick=function(){if(!cur)return;if(!confirm("Delete this mission?"))return;var L=list().filter(function(x){return x.id!==cur});Promise.resolve(M.set(L)).then(function(){sel();note("Mission deleted.")})};
+    g("msReset").onclick=function(){if(!confirm("Replace all missions with the starter list?"))return;Promise.resolve(M.reset()).then(function(){sel();note("Starter missions restored.")})};
+  })();
   g("admKeySave").onclick=function(){
     var k=g("admKey").value.trim()||dmCfg.key,m=g("admModel").value,ef=g("admEffort").value;
     if(!k){note("Paste your API key first.",1);return}
@@ -609,6 +643,124 @@ function importSeed(){
   }).catch(function(e){note(errText(e),1)});
 }
 
+/* ---------- look: fonts, frames, spacing and background photos (admin edits, everyone sees) ---------- */
+var LOOK_FONTS=[["Default","",""],["Cinzel","'Cinzel',serif","Cinzel"],["Cormorant Garamond","'Cormorant Garamond',serif","Cormorant+Garamond:wght@400;600"],["EB Garamond","'EB Garamond',serif","EB+Garamond"],["Merriweather","'Merriweather',serif","Merriweather"],["Lora","'Lora',serif","Lora"],["MedievalSharp","'MedievalSharp',cursive","MedievalSharp"],["Uncial Antiqua","'Uncial Antiqua',cursive","Uncial+Antiqua"],["Almendra","'Almendra',serif","Almendra"],["Atkinson Hyperlegible","'Atkinson Hyperlegible',sans-serif","Atkinson+Hyperlegible"],["Georgia","Georgia,serif",""],["System","system-ui,sans-serif",""]];
+var LOOK_SCENES=["tavern","forest","dungeon","battle","mystery","calm","tension","travel"];
+var LOOK_TABS=[["dice","Dice"],["party","Party"],["quest","Quest"],["shop","Shop"]];
+var LOOK_PRESETS=[
+ ["Plain",{bs:"",bw:0,dfont:"",font:"",pad:12,gap:12}],
+ ["Gilded",{bs:"ornate",bc:"#c99a3b",bw:16,dfont:"Cinzel",pad:16}],
+ ["Silver",{bs:"ornate",bc:"#aab4c0",bw:16,dfont:"Cinzel",pad:16}],
+ ["Emerald",{bs:"ornate",bc:"#4fae8a",bw:16,dfont:"Cormorant Garamond",pad:16}],
+ ["Royal",{bs:"ornate",bc:"#9a7ad8",bw:16,dfont:"Cinzel",pad:16}],
+ ["Iron",{bs:"solid",bc:"#5b5b66",bw:3,pad:12}],
+ ["Parchment",{bs:"double",bc:"#8a6a3a",bw:6,dfont:"EB Garamond",font:"EB Garamond",pad:14}]
+];
+var LOOK_DEF={font:"",dfont:"",size:15,bs:"",bc:"#c99a3b",bw:0,pad:12,gap:12,pageW:1180,logH:0,composeH:0,dim:0.45,bgSite:"",bgTabs:{},bgScenes:{},photos:[]};
+var look=JSON.parse(JSON.stringify(LOOK_DEF)),lookStyle=null,lookBgEl=null,lookPhotos={},lookLoaded={};
+function lookFont(n){return LOOK_FONTS.filter(function(f){return f[0]===n})[0]}
+function lookLoadFont(n){var f=lookFont(n);if(!f||!f[2]||lookLoaded[n])return;lookLoaded[n]=1;var l=document.createElement("link");l.rel="stylesheet";l.href="https://fonts.googleapis.com/css2?family="+f[2]+"&display=swap";document.head.appendChild(l)}
+function ornateSvg(c){
+  var s='<svg xmlns="http://www.w3.org/2000/svg" width="90" height="90" viewBox="0 0 90 90"><g fill="none" stroke="'+c+'"><path stroke-width="8" d="M17 5H73A12 12 0 0 1 85 17V73A12 12 0 0 1 73 85H17A12 12 0 0 1 5 73V17A12 12 0 0 1 17 5Z"/><path stroke-width="3" d="M24 14H66A10 10 0 0 0 76 24V66A10 10 0 0 0 66 76H24A10 10 0 0 0 14 66V24A10 10 0 0 0 24 14Z"/></g></svg>';
+  return 'url("data:image/svg+xml,'+encodeURIComponent(s)+'")'}
+function lookCss(L){
+  var o=[],sel=".panel,.card,.shbox,.shstat,.cba,header";
+  var f=lookFont(L.font),d=lookFont(L.dfont);
+  if((f&&f[1])||(d&&d[1]))o.push(":root{"+(f&&f[1]?"--font-b:"+f[1]+";":"")+(d&&d[1]?"--font-d:"+d[1]+";":"")+"}");
+  if(+L.size&&+L.size!==15)o.push("body{font-size:"+(+L.size)+"px}");
+  if(L.bs&&+L.bw>0){var w=+L.bw;
+    if(L.bs==="ornate")o.push(sel+"{border:"+w+"px solid transparent!important;border-image:"+ornateSvg(L.bc)+" 30 / "+w+"px stretch!important;border-radius:0!important}");
+    else o.push(sel+"{border:"+w+"px "+L.bs+" "+L.bc+"!important}")}
+  if(+L.pad!==12)o.push(".panel{padding:"+(+L.pad)+"px!important}");
+  if(+L.gap!==12)o.push(".wrap,.grid{gap:"+(+L.gap)+"px!important}");
+  if(+L.pageW&&+L.pageW!==1180)o.push(".wrap,#swbar{max-width:"+(+L.pageW)+"px!important}");
+  if(+L.logH>0)o.push("#log,.grid.wide #log{height:"+(+L.logH)+"px!important}");
+  if(+L.composeH>0)o.push(".composer textarea{min-height:"+(+L.composeH)+"px!important}");
+  return o.join("\n")}
+function lookCurrentPhoto(){
+  var sc=((document.getElementById("scenepill")||{}).textContent||"").replace("scene:","").trim();
+  var tb=document.querySelector('.tabs button[aria-selected="true"]'),tab=tb?tb.id.replace("t-",""):"";
+  return (look.bgScenes&&look.bgScenes[sc])||(look.bgTabs&&look.bgTabs[tab])||look.bgSite||""}
+function lookPhoto(id){
+  if(lookPhotos[id])return Promise.resolve(lookPhotos[id]);
+  return fs.doc("look/p_"+id).get().then(function(s){var d=s.exists?s.data().data:"";lookPhotos[id]=d;return d}).catch(function(){return ""})}
+function lookBg(){
+  if(!lookBgEl){lookBgEl=document.createElement("div");lookBgEl.id="lookBg";lookBgEl.style.cssText="position:fixed;inset:0;z-index:-1;background-size:cover;background-position:center;pointer-events:none;display:none";document.body.appendChild(lookBgEl)}
+  var id=lookCurrentPhoto(),cv=document.getElementById("bg");
+  if(!id){lookBgEl.style.display="none";if(cv)cv.style.display="";return}
+  lookPhoto(id).then(function(url){
+    if(id!==lookCurrentPhoto())return;
+    if(!url){lookBgEl.style.display="none";if(cv)cv.style.display="";return}
+    var dm=Math.max(0,Math.min(.85,+look.dim||0));
+    lookBgEl.style.backgroundImage="linear-gradient(rgba(0,0,0,"+dm+"),rgba(0,0,0,"+dm+")),url("+url+")";lookBgEl.style.display="block";if(cv)cv.style.display="none"})}
+function lookApply(){
+  if(!lookStyle){lookStyle=document.createElement("style");lookStyle.id="lookCss";document.head.appendChild(lookStyle)}
+  lookLoadFont(look.font);lookLoadFont(look.dfont);lookStyle.textContent=lookCss(look);lookBg()}
+window.__lookRefresh=function(){try{lookBg()}catch(e){}};
+function startLook(){
+  fs.doc("look/settings").onSnapshot(function(s){
+    var d=s.exists?s.data():{};look=Object.assign(JSON.parse(JSON.stringify(LOOK_DEF)),d);
+    look.bgTabs=look.bgTabs||{};look.bgScenes=look.bgScenes||{};look.photos=look.photos||[];lookApply();if(lookDock&&lookDock.style.display!=="none")lookFill()},function(){});
+}
+/* ----- admin dock ----- */
+var lookDock=null;
+function openLook(){
+  if(!lookDock){lookDock=document.createElement("div");lookDock.id="lookDock";
+    lookDock.style.cssText="position:fixed;right:10px;top:60px;bottom:10px;width:min(340px,calc(100vw - 20px));z-index:8000;background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:12px;overflow:auto;display:flex;flex-direction:column;gap:8px;box-shadow:0 8px 30px rgba(0,0,0,.45);font-size:13px";
+    document.body.appendChild(lookDock)}
+  lookDock.style.display="flex";lookFill()}
+function lk(id){return document.getElementById(id)}
+function lookOpts(list,cur,none){return (none?'<option value="">'+none+'</option>':'')+list.map(function(x){var v=Array.isArray(x)?x[0]:x,t=Array.isArray(x)?x[1]||x[0]:x;return '<option value="'+esc(v)+'"'+(v===cur?" selected":"")+'>'+esc(t)+'</option>'}).join("")}
+function lookFill(){
+  if(!lookDock)return;var L=look,ph=(L.photos||[]).map(function(p){return [p.id,p.name]});
+  var rng=function(id,lab,min,max,step,v){return '<label>'+lab+' <b id="'+id+'v">'+v+'</b><input type="range" id="'+id+'" min="'+min+'" max="'+max+'" step="'+step+'" value="'+v+'"></label>'};
+  lookDock.innerHTML='<div class="row" style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:16px">Look</b><button id="lkX">Close</button></div><div class="tiny" id="lkMsg">Changes show right away for you. Save to show them to everyone.</div>'+
+   '<div><b>Presets</b><div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">'+LOOK_PRESETS.map(function(p,i){return '<button data-lp="'+i+'">'+p[0]+'</button>'}).join("")+'</div></div>'+
+   '<div><b>Text</b><label>Body font<select id="lkF">'+lookOpts(LOOK_FONTS.map(function(f){return f[0]}),L.font||"Default")+'</select></label><label>Heading and DM font<select id="lkD">'+lookOpts(LOOK_FONTS.map(function(f){return f[0]}),L.dfont||"Default")+'</select></label>'+rng("lkSize","Text size (px)",12,22,1,+L.size||15)+'</div>'+
+   '<div><b>Borders</b><label>Style<select id="lkBS">'+lookOpts([["","Normal"],["ornate","Ornate corners"],["solid","Solid"],["double","Double"],["dashed","Dashed"],["dotted","Dotted"],["ridge","Ridge"],["groove","Groove"]],L.bs||"")+'</select></label><label>Color<input type="color" id="lkBC" value="'+esc(L.bc||"#c99a3b")+'"></label>'+rng("lkBW","Thickness (px)",0,30,1,+L.bw||0)+'</div>'+
+   '<div><b>Size and spacing</b>'+rng("lkPW","Page width (px)",760,1800,20,+L.pageW||1180)+rng("lkPad","Panel padding (px)",4,40,1,+L.pad||12)+rng("lkGap","Gap between panels (px)",0,40,1,+L.gap||12)+rng("lkLog","Story log height (px, 0 = automatic)",0,1000,20,+L.logH||0)+rng("lkCmp","Message box height (px, 0 = automatic)",0,400,10,+L.composeH||0)+'</div>'+
+   '<div><b>Background photos</b><div class="tiny">Photos are shrunk to about 300 KB. A photo replaces the pixel scenery. A scene photo wins over a tab photo, which wins over the whole-site photo.</div><label>Add a photo<input type="file" id="lkUp" accept="image/*"></label>'+
+   (ph.length?'<div style="display:flex;flex-wrap:wrap;gap:4px">'+ph.map(function(p){return '<span class="pill">'+esc(p[1])+' <button data-lpd="'+esc(p[0])+'" title="Delete this photo">x</button></span>'}).join("")+'</div>':'')+
+   '<label>Whole site<select id="lkBgS">'+lookOpts(ph,L.bgSite||"","None (pixel scenery)")+'</select></label>'+
+   LOOK_TABS.map(function(t){return '<label>'+t[1]+' tab<select data-lbt="'+t[0]+'">'+lookOpts(ph,(L.bgTabs||{})[t[0]]||"","Same as site")+'</select></label>'}).join("")+
+   LOOK_SCENES.map(function(s){return '<label>Scene: '+s+'<select data-lbs="'+s+'">'+lookOpts(ph,(L.bgScenes||{})[s]||"","Same as tab")+'</select></label>'}).join("")+
+   rng("lkDim","Darken photo",0,0.85,0.05,+L.dim||0)+'</div>'+
+   '<div style="display:flex;gap:6px;flex-wrap:wrap"><button id="lkSave" class="primary">Save for everyone</button><button id="lkReset">Reset to plain</button></div>';
+  lk("lkX").onclick=function(){lookDock.style.display="none"};
+  var up=function(){look.font=lk("lkF").value==="Default"?"":lk("lkF").value;look.dfont=lk("lkD").value==="Default"?"":lk("lkD").value;look.size=+lk("lkSize").value;look.bs=lk("lkBS").value;look.bc=lk("lkBC").value;look.bw=+lk("lkBW").value;look.pageW=+lk("lkPW").value;look.pad=+lk("lkPad").value;look.gap=+lk("lkGap").value;look.logH=+lk("lkLog").value;look.composeH=+lk("lkCmp").value;look.dim=+lk("lkDim").value;look.bgSite=lk("lkBgS").value;
+    ["lkSize","lkBW","lkPW","lkPad","lkGap","lkLog","lkCmp","lkDim"].forEach(function(i){lk(i+"v").textContent=lk(i).value});
+    look.bgTabs={};Array.prototype.forEach.call(lookDock.querySelectorAll("[data-lbt]"),function(s){if(s.value)look.bgTabs[s.dataset.lbt]=s.value});
+    look.bgScenes={};Array.prototype.forEach.call(lookDock.querySelectorAll("[data-lbs]"),function(s){if(s.value)look.bgScenes[s.dataset.lbs]=s.value});lookApply()};
+  lookDock.oninput=up;lookDock.onchange=up;
+  lookDock.onclick=function(e){var b=e.target.closest("button");if(!b)return;
+    if(b.dataset.lp!=null){var p=LOOK_PRESETS[+b.dataset.lp][1];Object.keys(p).forEach(function(k){look[k]=p[k]});lookApply();lookFill()}
+    else if(b.dataset.lpd){lookDelPhoto(b.dataset.lpd)}};
+  lk("lkSave").onclick=function(){lookSave().then(function(){lookMsg("Saved. Everyone now sees this look.")},function(e){lookMsg(errText(e),1)})};
+  lk("lkReset").onclick=function(){var ph=look.photos;look=JSON.parse(JSON.stringify(LOOK_DEF));look.photos=ph;lookApply();lookFill()};
+  lk("lkUp").onchange=function(){var f=this.files&&this.files[0];if(f)lookUpload(f)};
+  if(lookNote)lookMsg(lookNote[0],lookNote[1]);
+}
+var lookNote=null;
+function lookMsg(t,bad){lookNote=[t,bad];var n=lk("lkMsg");if(n){n.textContent=t;n.style.color=bad?"var(--bad)":"var(--good)"}}
+function lookSave(){var d=JSON.parse(JSON.stringify(look));return fs.doc("look/settings").set(clean(d))}
+function lookShrink(file){return new Promise(function(res,rej){
+  var fr=new FileReader();fr.onerror=function(){rej(new Error("Could not read that file."))};
+  fr.onload=function(){var im=new Image();im.onerror=function(){rej(new Error("That is not an image the browser can open."))};
+    im.onload=function(){var max=1600,q=.82,best=null;
+      for(var t=0;t<14;t++){var sc=Math.min(1,max/Math.max(im.width,im.height)),c=document.createElement("canvas");c.width=Math.max(1,Math.round(im.width*sc));c.height=Math.max(1,Math.round(im.height*sc));c.getContext("2d").drawImage(im,0,0,c.width,c.height);
+        best=c.toDataURL("image/jpeg",q);if(best.length<=400000)break;if(q>.55)q-=.08;else max=Math.round(max*.8)}
+      best.length<=900000?res(best):rej(new Error("That photo is too detailed to shrink enough. Try a smaller one."))};
+    im.src=fr.result};fr.readAsDataURL(file)})}
+function lookUpload(f){
+  lookMsg("Shrinking the photo...");
+  lookShrink(f).then(function(url){var id=Date.now().toString(36)+Math.random().toString(36).slice(2,5),nm=String(f.name||"photo").replace(/\.[^.]+$/,"").slice(0,28);
+    return fs.doc("look/p_"+id).set({name:nm,data:url}).then(function(){lookPhotos[id]=url;look.photos=(look.photos||[]).concat([{id:id,name:nm}]);return lookSave()}).then(function(){lookFill();lookMsg("Added "+nm+" ("+Math.round(url.length*.75/1024)+" KB). Pick it below.")})
+  }).catch(function(e){lookMsg(e.message||errText(e),1)})}
+function lookDelPhoto(id){
+  look.photos=(look.photos||[]).filter(function(p){return p.id!==id});if(look.bgSite===id)look.bgSite="";
+  Object.keys(look.bgTabs||{}).forEach(function(k){if(look.bgTabs[k]===id)delete look.bgTabs[k]});Object.keys(look.bgScenes||{}).forEach(function(k){if(look.bgScenes[k]===id)delete look.bgScenes[k]});
+  delete lookPhotos[id];fs.doc("look/p_"+id).delete().catch(function(){});lookSave().then(function(){lookApply();lookFill()})}
+
 start();
 })();
 </script>
@@ -626,7 +778,7 @@ var GUIDE="[[GUIDE]]";
 
 /* ---------- state ---------- */
 var db=null, sample=null, me=null;
-var S={episode:0,sitting:"A",scene:"calm",shards:0,quests:[],summary:"",busy:null,terrain:"road",combat:null,ginv:null};
+var S={episode:0,sitting:"A",scene:"calm",shards:0,quests:[],summary:"",busy:null,terrain:"road",combat:null,ginv:null,shopCfg:null,missions:null,missionCfg:null};
 window.__S=function(){return S};
 var logs=[], chars=[];
 var sceneOver=null, TERRS_OK=["road","fields","woods","mountain","town","cave"];
@@ -713,7 +865,7 @@ function sched(){
   }
 }
 var AMB={tavern:"Village Festival",forest:"Eldritch Wood",dungeon:"Prismatic Halls",battle:"Dragon Clan Attack",mystery:"Seer's Chamber",calm:"Lighthouse",tension:"Doors and Corners",travel:"City of Wonders"};
-function setScene(n){ if(!SC[n])return; $("scenepill").textContent="scene: "+n;
+function setScene(n){ if(!SC[n])return; $("scenepill").textContent="scene: "+n; setTimeout(function(){try{window.__lookRefresh&&window.__lookRefresh()}catch(e){}},0);
   $("ambience").innerHTML='Suggested ambience: <a href="https://tabletopaudio.com/" target="_blank" rel="noopener">'+esc(AMB[n])+' on Tabletop Audio</a> &middot; <a href="https://www.ambient-mixer.com/" target="_blank" rel="noopener">Ambient Mixer</a>'; if(n!==curScene){curScene=n;step=0}}
 $("musicBtn").onclick=function(){
   mOn=!mOn; this.setAttribute("aria-pressed",mOn); this.textContent=mOn?"Music on":"Music off";
@@ -733,6 +885,7 @@ try{var sv=localStorage.getItem("vvol"); if(sv!==null)$("vvol").value=sv}catch(e
 document.addEventListener("click",function(e){var d=$("rbMenu"); if(d&&d.open&&!d.contains(e.target))d.open=false});document.addEventListener("keydown",function(e){if(e.key==="Escape"){var d=$("rbMenu"); if(d)d.open=false}});
 /* ---------- tabs ---------- */
 function tab(n){if(n==="party"){try{advAfter()}catch(e){}}
+  setTimeout(function(){try{window.__lookRefresh&&window.__lookRefresh()}catch(e){}},0);
   ["dice","party","quest","shop"].forEach(function(k){$("p-"+k).hidden=k!==n;$("t-"+k).setAttribute("aria-selected",k===n)}); document.querySelector(".grid").classList.toggle("wide",n!=="dice")}
 ["dice","party","quest","shop"].forEach(function(k){$("t-"+k).onclick=function(){tab(k);if(k==="shop")renderShop()}});
 
@@ -1599,7 +1752,7 @@ function renderChars(){
   $("chars").innerHTML=a?cardHtml(a):'<div class="empty">No adventurers yet. Add one, or have each player add theirs.</div>';
   SHEET_ID=a?a.id:null;
   if(a){if(Date.now()-shSaved>1500)shRender()}else $("sheetBody").innerHTML="";
-  refreshPickers();advAfter();
+  refreshPickers();advAfter();try{renderMissions()}catch(e){}
   var aside=document.querySelector("aside.panel"); if(aside&&aside._st!=null){aside.scrollTop=aside._st}
 }
 (function(){var aside=document.querySelector("aside.panel"); if(aside)aside.addEventListener("scroll",function(){aside._st=aside.scrollTop},{passive:true})})();
@@ -1634,7 +1787,7 @@ $("chars").addEventListener("click",function(ev){
   else if(f==="ldn"){var k2=c.classes[+row.dataset.i];if((+k2.level||0)>1){k2.level=+k2.level-1;setStatus(k2.name+" lowered to "+k2.level+". XP already spent is not refunded.");saveChar(c)}else setStatus("Use Remove (x) to drop a class entirely.");u.abil=true;renderChars()}
   else if(f==="sheet"){openSheet(c.id)}
   else if(f==="rest3"||f==="rest6"){if(cbOn()){setStatus("You cannot rest during combat.");return}var rm=restChar(c,f==="rest3"?3:6);setStatus(rm);addLog({kind:"sys",text:rm});renderChars()}
-  else if(f==="newday"){c.sleptH=0;saveChar(c);setStatus(c.name+" is rested up for a new day.");renderChars()}
+  else if(f==="newday"){c.sleptH=0;c.hag={};saveChar(c);setStatus(c.name+" is rested up for a new day.");renderChars()}
   else if(f==="noport"){delete c.portrait;saveChar(c);renderChars()}
   else if(f==="claim"){c.owner=me;saveChar(c);setStatus("You now control "+c.name+" in combat.");renderChars()}
   else if(f==="release"){c.owner="";saveChar(c);renderChars()}
@@ -1696,7 +1849,7 @@ $("rollBtn").onclick=function(){
 /* ---------- DM brain ---------- */
 function busy(){return S.busy&&Date.now()-S.busy.at<90000}
 var stPending=0,stDeferred=null;
-function applySnap(d){S=Object.assign({episode:0,sitting:"A",scene:"calm",shards:0,quests:[],summary:"",busy:null,terrain:"road",combat:null,ginv:null},JSON.parse(JSON.stringify(d||{}))); renderQuest(); try{renderGinv()}catch(e){} if(!sceneOver)setScene(S.scene); if($("terrSel"))$("terrSel").value=S.terrain||"road"; if(window.__sceneRedraw)window.__sceneRedraw(); renderCombat();}
+function applySnap(d){S=Object.assign({episode:0,sitting:"A",scene:"calm",shards:0,quests:[],summary:"",busy:null,terrain:"road",combat:null,ginv:null,shopCfg:null,missions:null,missionCfg:null},JSON.parse(JSON.stringify(d||{}))); renderQuest(); try{renderGinv();renderMissions()}catch(e){} if(!sceneOver)setScene(S.scene); if($("terrSel"))$("terrSel").value=S.terrain||"road"; if(window.__sceneRedraw)window.__sceneRedraw(); renderCombat();}
 function saveState(p){Object.assign(S,p); if(!db)return Promise.resolve(); stPending++; return db.doc("state/main").set(JSON.parse(JSON.stringify(S))).catch(function(e){setStatus("Could not save state: "+(e&&e.message||e))}).then(function(){stPending--; if(stPending<=0){stPending=0; if(stDeferred){var d=stDeferred;stDeferred=null;applySnap(d)} else renderCombat()}})}
 function partyText(){return chars.map(function(c){var d=derive(c);return c.name+" ("+(c.player||"player")+", "+(c.race||"?")+"; "+(c.classes||[]).map(function(k){return k.name+" "+k.level}).join(", ")+"; HP "+d.hp+", MP "+d.mp+"; Fort "+d.fort+", Will "+d.will+")"}).join("\n")||"(no characters yet)"}
 function recent(n){return logs.slice(-n).map(function(m){return (m.kind==="dm"?"DM":m.kind==="roll"?"ROLL":m.kind==="coach"?"COACH":m.kind==="sys"?"TABLE":(m.who||"Player"))+": "+m.text}).join("\n")}
@@ -1709,9 +1862,9 @@ async function dmTurn(text,mode,force,retried){
   dmInflight=true;$("sendBtn").disabled=true; setStatus("The DM is thinking..."); await saveState({busy:{by:me||"?",at:Date.now()}});
   var prompt=["You are the Dungeon Master for a Sword World 2.5 tabletop game played on a shared web page. Narrate in second person plural or by character name, vivid but brief (60-140 words), with light humor and occasional real weight. Never decide the players' actions or roll their dice; instead request rolls with a Target Number. Explain a rule only when it is unique to Sword World 2.5 and first comes up. Keep secrets secret. Always set terrain to the landscape the party is in now (it drives the animated backdrop). Use combat.state \"start\" on the turn a fight begins, naming 1-5 monsters with simple words such as goblin, kobold, wolf, bat, slime, skeleton, bandit, boar, ogre; use \"end\" on the turn it ends, with outcome \"defeated\" or \"fled\"; otherwise \"none\".",
    "RULES:\n"+RULES,"CAMPAIGN (DM only):\n"+GUIDE,"PARTY:\n"+partyText(),
-   "STATE: episode "+S.episode+", sitting "+S.sitting+", scene "+S.scene+", terrain "+(S.terrain||"road")+", "+(S.combat&&S.combat.on?"IN COMBAT with "+(S.combat.mons||[]).join(", "):"no combat")+", sword shards "+S.shards+"\nQUESTS: "+(S.quests||[]).map(function(q){return (q.done?"[done] ":"")+q.text}).join("; ")+"\nSTORY SO FAR: "+(S.summary||"(nothing yet)"),
+   "STATE: episode "+S.episode+", sitting "+S.sitting+", scene "+S.scene+", terrain "+(S.terrain||"road")+", "+(S.combat&&S.combat.on?"IN COMBAT with "+(S.combat.mons||[]).join(", "):"no combat")+", sword shards "+S.shards+"\nQUESTS: "+(S.quests||[]).map(function(q){return (q.done?"[done] ":"")+q.text}).join("; ")+"\nSTORY SO FAR: "+(S.summary||"(nothing yet)"),missionPrompt(),
    "RECENT LOG:\n"+recent(14),"NEW INPUT: "+text,
-   'Reply with ONLY a JSON object: {"narration":"text to read aloud","scene":"one of tavern|forest|dungeon|battle|mystery|calm|tension|travel","terrain":"where the party is right now, one of road|fields|woods|mountain|town|cave","combat":{"state":"none|start|end","monsters":["1-5 names"],"outcome":"defeated|fled"},"rolls":[{"who":"character name","check":"skill name","tn":9,"why":"short reason"}],"summary":"updated 2-4 sentence story so far","shards":0,"quest_add":["optional new lead"],"rules_note":"optional one-sentence rules reminder, empty if none"}'].join("\n\n");
+   'Reply with ONLY a JSON object: {"narration":"text to read aloud","scene":"one of tavern|forest|dungeon|battle|mystery|calm|tension|travel","terrain":"where the party is right now, one of road|fields|woods|mountain|town|cave","combat":{"state":"none|start|end","monsters":["1-5 names"],"outcome":"defeated|fled"},"rolls":[{"who":"character name","check":"skill name","tn":9,"why":"short reason"}],"summary":"updated 2-4 sentence story so far","shards":0,"quest_add":["optional new lead"],"rules_note":"optional one-sentence rules reminder, empty if none","mission_steps":["optional ids from ACTIVE MISSION STEPS that the story just completed"]}'].join("\n\n");
   try{
     var r=await sample(prompt,{cache:false}); var j=parseJson(r.text);
     await addLog({kind:"dm",text:String(j.narration||"").slice(0,1800),rolls:(j.rolls||[]).slice(0,4).map(function(x){return {who:String(x.who||""),check:String(x.check||""),tn:+x.tn||9,why:String(x.why||"")}})});
@@ -1720,6 +1873,7 @@ async function dmTurn(text,mode,force,retried){
     var cmb=S.combat,jc=j.combat||{}; var newB=null; if(jc.state==="start"&&!(cmb&&cmb.on)){var mn=(Array.isArray(jc.monsters)?jc.monsters:[]).slice(0,5).map(function(s){return String(s).slice(0,30)}); if(!mn.length)mn=["goblin","goblin"]; cmb=newB=newBattle(mn)} else if(jc.state==="end"&&cmb&&cmb.on&&!cmb.phase)cmb=Object.assign({},cmb,{on:false,outcome:jc.outcome==="fled"?"fled":"defeated"});
     await saveState({terrain:TERRS_OK.indexOf(j.terrain)>=0?j.terrain:(S.terrain||"road"),combat:cmb||null,scene:SC[j.scene]?j.scene:S.scene,summary:j.summary?String(j.summary).slice(0,1500):S.summary,shards:Number.isFinite(+j.shards)?+j.shards:S.shards,quests:qs,busy:null});
     if(newB){slog("Combat begins against "+newB.foes.map(function(f){return f.nm}).join(", ")+". "+newB.initText);slog(newB.first==="foe"?"The enemies took their places first. Choose where each hero stands, then confirm.":"The party takes position first. Choose where each hero stands, then confirm.")}
+    try{missionSteps(j.mission_steps)}catch(e){}
     setStatus("");
   }catch(e){
     await saveState({busy:null});
@@ -1910,7 +2064,7 @@ function restChar(c,hrs){
 }
 function restAll(hrs){if(cbOn()){setStatus("You cannot rest during combat.");return}
   var ls=chars.map(function(c){return restChar(c,hrs)}).filter(Boolean);slog("Rest ("+hrs+" hours): "+ls.join(" "));}
-function newDay(){chars.forEach(function(c){c.sleptH=0;saveChar(c)});slog("A new day begins. Daily rest limits reset.")}
+function newDay(){chars.forEach(function(c){c.sleptH=0;c.hag={};saveChar(c)});slog("A new day begins. Daily rest limits reset.")}
 function prepDone(){
   var cb=S.combat;if(!cb||cb.phase!=="prep")return;
   cbSet(function(c){c.phase="place"});
@@ -1971,6 +2125,7 @@ function finishBattle(res){
   var cb=S.combat;if(!cb||!cb.on)return;
   var defd=cb.foes.filter(function(f){return f.dead}),dead=defd.map(function(f){return f.nm+(f.ko?" (knocked out)":"")});
   cbSet(function(c){c.on=false;c.outcome=res==="won"?"defeated":"fled";c.phase="over"});
+  try{missionKills(defd,cb.id)}catch(e){}
   var stats=cb.stats||{},rows=chars.map(function(c){var s=stats[c.id]||{d:0,t:0,k:0,h:0};return {n:c.name,d:s.d,t:s.t,k:s.k,h:s.h}}),mvp=rows.slice().sort(function(a,b){return (b.d+b.k*5)-(a.d+a.k*5)})[0];
   var recap={rounds:cb.round||0,rows:rows,mvp:(mvp&&(mvp.d||mvp.k))?mvp.n:""};
   if(!defd.length)saveState({loot:{id:cb.id,xp:0,mons:[],recap:recap}});
@@ -2579,7 +2734,7 @@ var ARMORS=[["Cloth Armor","Nonmetal","B",1,0,2,15,"Light cloth. Grapplers may e
 var SHOPITEMS=[["Gear","Adventurer Set",100,"Backpack, waterskin, blanket, 6 torches, tinderbox, 10 m rope and a small knife.",[],""],["Gear","Bag",8,"A fabric bag.",[],""],["Gear","Belt Pouch",15,"A small leather pouch.",[],""],["Gear","Waterskin",20,"Leather water container.",[],""],["Gear","Backpack",50,"Leather pack for carrying gear.",[],""],["Gear","Tableware Set",12,"Cup, plate and bowl.",[],""],["Gear","Blanket",40,"A warm blanket.",[],""],["Gear","Cooking Utensil Set",50,"Frypan, pan and cooking spoon.",[],""],["Gear","Tent (4 people)",250,"Shelter for four. 300 G for five, 350 G for six.",[],""],["Gear","Torch (set of 6)",5,"Each lasts 2 hours, even if dropped.",[],""],["Gear","Tinderbox",20,"Flint and kindling. Ignites in 10 minutes.",[],""],["Gear","Lantern Oil",20,"Burns 12 hours.",[],""],["Gear","Hu Lamp",100,"Pot with flint and a mechanical spark. Ignites in 1 minute.",[],""],["Gear","Lantern",40,"Shuttered lantern. Destroyed when dropped.",[],""],["Gear","Rope (10 m)",10,"10 m long; 1 G for each extra metre.",[],""],["Gear","Small Hammer",10,"A tool, not a weapon.",[],""],["Gear","Grappling Hook",10,"For climbing.",[],""],["Gear","Piton (set of 10)",20,"Climbing spikes.",[],""],["Gear","Small Knife",20,"A tool, not a weapon.",[],""],["Gear","Hand Mirror",50,"Small mirror.",[],""],["Gear","Change of Clothes",10,"A week's worth of clothes.",[],""],["Gear","Preserved Food (1 day)",10,"Dried meat and fruit.",[],""],["Gear","Preserved Food (1 week)",50,"Value pack of dried food.",[],""],["Gear","Meal (dinner)",15,"One hot dinner.",[],""],["Gear","Writing Quill",2,"For writing.",[],""],["Gear","Ink",3,"A bottle of ink.",[],""],["Gear","Parchment (5 sheets)",5,"Writing sheets.",[],""],["Gear","Blank Book",30,"20 pages.",[],""],["Gear","Magnifying Glass",100,"Look closer.",[],""],["Gear","Hourglass",120,"Measures 3 minutes.",[],""],["Gear","Nutrition Capsule",100,"Runefolk only. One is needed per week.",[],"runefolk"],["Animals","Donkey",800,"A sturdy work animal.",[],""],["Animals","Mule",1000,"A tough work animal.",[],""],["Animals","Packhorse",1500,"Carries heavy loads.",[],""],["Animals","Camel",2000,"For desert travel.",[],""],["Potions & Herbs","Lifegrass",30,"Herb. Takes 10 minutes. Restores HP with Power 10; add Ranger level + Dexterity bonus.",[],""],["Potions & Herbs","Magic Herb",100,"Herb. Takes 10 minutes. Restores MP with Power 0; add Ranger level + Dexterity bonus.",[],""],["Potions & Herbs","Healing Potion",100,"Drink as a Major Action to restore HP (Power 20).",[],""],["Potions & Herbs","Healing Potion +1",200,"Restores HP (Power 20, +1).",[],""],["Potions & Herbs","Treat Potion",500,"Restores HP (Power 30).",[],""],["Potions & Herbs","Magic Perfume",600,"Restores MP. Can be sprinkled on others (see CR I p. 303).",[],""],["Potions & Herbs","Awake Potion",100,"Wakes an unconscious character, as the Awaken spell. Can be sprinkled.",[],""],["Potions & Herbs","Antidote Potion",500,"Removes poison effects with a success value of 15 or less.",[],""],["Class items","Magical Implement",100,"Staff, wand or similar medium for Truespeech and Spiritualism Magic.",["Sorcerer","Conjurer"],""],["Class items","Holy Symbol",100,"Needed to cast Divine Magic.",["Priest"],""],["Class items","Magisphere (Small)",200,"Medium for Magitech spells.",["Artificer"],""],["Class items","Magisphere (Medium)",500,"Medium for Magitech spells. Back, waist or other slot.",["Artificer"],""],["Class items","Magisphere (Large)",1000,"Large Magitech medium. Back or other slot.",["Artificer"],""],["Class items","Mako Stone (1-5 pts., per point)",100,"Substitutes for MP cost.",["Sorcerer","Conjurer","Priest","Artificer","Fairy Tamer"],""],["Class items","Scout's Tools",100,"Wire, skeleton keys and tools. Without them some Scout checks take -4.",["Scout","Ranger"],""],["Class items","Key of Unlocking",100,"Lets a Disable Device check work on magically locked doors.",["Scout","Ranger"],""],["Class items","Gun Belt",20,"Holds 12 bullets.",["Marksman","Artificer"],""],["Class items","Bullet Pouch",100,"Holds 24 bullets. Needs Weapon Proficiency A/Gun.",["Marksman","Artificer"],""],["Ammo","Arrow (12)",10,"Arrows for a bow. 1 G for a single arrow.",["Marksman"],""],["Ammo","Quarrel (12)",30,"Bolts for a crossbow. 3 G for a single quarrel.",["Marksman"],""],["Ammo","Piercing Arrow (12)",30,"Power -5, Critical Threshold -1 (see book). 2 G for one.",["Marksman"],""],["Ammo","Arrow Case",20,"Holds 12 arrows or quarrels. Back, waist or other slot.",["Marksman"],""],["Ammo","Quiver",100,"Holds 24 arrows or quarrels. Needs Weapon Proficiency A/Bow or Crossbow.",["Marksman"],""],["Accessories","Hat",7,"Knitted 7 G, leather 15 G, silk 100 G.",[],""],["Accessories","Helmet",20,"A hard or padded protective hat.",[],""],["Accessories","Circlet",20,"Headwear that adorns the forehead.",[],""],["Accessories","Veil",40,"Fine lace.",[],""],["Accessories","Pointed Hat",3000,"+1 to Monster Knowledge checks (CR I p. 305).",[],""],["Accessories","Mask",2,"Covers mouth and nose.",[],""],["Accessories","Glasses",150,"Correct eyesight.",[],""],["Accessories","Earrings",2,"Beads 2 G, gemstones 5 G.",[],""],["Accessories","Earmuffs",10,"Warm ears.",[],""],["Accessories","Necklace",5,"Beads 5 G, gemstones 8 G.",[],""],["Accessories","Muffler",15,"Protects the neck from cold.",[],""],["Accessories","Lucky Charm",2000,"Loot Determination rolls +1 (CR I p. 307).",[],""],["Accessories","Half Mantle",30,"Waist-length cloak.",[],""],["Accessories","Long Mantle",40,"Knee-length cloak.",[],""],["Accessories","Ring",5,"Beads 5 G, gemstones 8 G.",[],""],["Accessories","Gloves",10,"Knitted 10 G, leather 18 G.",[],""],["Accessories","Ability-Enhancing Ring",500,"+1 to one ability score (CR I p. 308).",[],""],["Accessories","Belt",10,"Thin leather.",[],""],["Accessories","Black Belt",3000,"+1 Defense (CR I p. 309).",[],""],["Accessories","Boots",20,"Ankle-length leather boots.",[],""],["Accessories","Silent Shoes",5000,"Hide checks +2 (CR I p. 309).",[],""],["Accessories","Bandanna",5,"Can hide a Nightmare's horns.",[],""],["Accessories","Scarf",7,"Rectangular cloth.",[],""]];
 
 var SHOPCATS=["Weapons","Armor","Shields","Gear","Potions & Herbs","Class items","Ammo","Accessories","Animals"];
-var SU={cid:"",cat:"Weapons",q:"",locked:false};
+var SU={cid:"",cat:"Weapons",q:"",locked:false,mode:"buy"};
 var CATLBL={Swords:"sword",Axes:"axe",Spears:"spear",Maces:"mace",Staves:"staff",Flails:"flail",Warhammers:"warhammer",Wrestling:"wrestling weapon",Thrown:"thrown weapon",Bows:"bow",Crossbows:"crossbow"};
 function shopItems(cat){
   var out=[];
@@ -2613,7 +2768,7 @@ function eligible(c,it){
     if(it.req&&it.req.length&&!it.req.some(function(n){return hasCls(c,n)}))why.push("Needs the "+it.req.join(" or ")+" class");
     if(it.race&&it.race!==c.race)why.push("Only for "+it.race.charAt(0).toUpperCase()+it.race.slice(1)+"s");
   }
-  return {ok:!why.length,why:why,warn:warn,afford:cash>=it.price};
+  return {ok:!why.length,why:why,warn:warn,afford:cash>=effPrice(c,it)};
 }
 function shopCardHtml(){
   var c=getChar(SU.cid)||chars[0];if(c)SU.cid=c.id;
@@ -2621,6 +2776,7 @@ function shopCardHtml(){
   if(cbOn())return '<div class="empty">The shop is closed during combat. Finish the fight first.</div>';
   if(!chars.length)return '<div class="empty">Add a character in the Party tab first.</div>';
   h+='<div class="row" style="gap:8px;align-items:end;flex-wrap:wrap"><label>Shopping as<select id="shopWho">'+chars.map(function(x){return '<option value="'+x.id+'"'+(x.id===SU.cid?' selected':'')+'>'+esc(x.name)+'</option>'}).join("")+'</select></label><div class="shpill"><b>Cash</b> '+fmt(+c.cash||0)+' G</div>'+(c.funded?'':'<button data-shop="fund" title="Characters start with 1,200 G (CR I p. 79)">Add 1,200 G starting funds</button>')+'</div>';
+  h+=shopModeRow();if(SU.mode==="feats")return h+featShelfHtml(c);if(SU.mode==="sell")return h+sellHtml(c);
   var cl=(c.classes||[]).map(function(k){return k.name+" "+k.level}).join(", ")||"no class yet";
   h+='<div class="tiny">'+esc(c.name)+': '+esc((RACE[c.race]||{}).name||"no race")+(c.bg?", "+esc(c.bg):"")+", "+esc(cl)+', Strength '+(+((c.abil||{}).str)||0)+'. Items you cannot use are hidden unless you tick "Show locked items".</div>';
   h+='<div class="row" style="gap:6px;flex-wrap:wrap">'+SHOPCATS.map(function(k){return '<button data-shop="cat" data-c="'+k+'"'+(SU.cat===k?' class="primary"':'')+'>'+k+'</button>'}).join("")+'</div>';
@@ -2631,8 +2787,8 @@ function shopCardHtml(){
     var e=eligible(c,it);if(!e.ok&&!SU.locked){hidden++;return}
     if(shown>=90)return;shown++;
     var idx=items.indexOf(it);
-    rows+='<div class="featrow'+(e.ok?'':' lockd')+'"><div><b>'+esc(it.n)+'</b> <span class="chip">'+fmt(it.price||0)+' G</span><div class="tiny">'+esc(it.d)+'</div>'+(e.ok?'':'<div class="tiny no">Locked: '+esc(e.why.join("; "))+'</div>')+(e.warn.length?'<div class="tiny no">'+esc(e.warn.join("; "))+'</div>':'')+'</div><div class="col" style="gap:4px;display:flex;flex-direction:column">'+
-      '<button data-shop="buy" data-i="'+idx+'"'+(e.ok&&e.afford?'':' disabled')+(e.ok&&!e.afford?' title="Not enough cash"':'')+'>'+(e.ok&&!e.afford?'Need '+fmt(it.price-(+c.cash||0))+' G':'Buy')+'</button>'+((it.k==="w"||it.k==="a")?'<button data-shop="buyeq" data-i="'+idx+'"'+(e.ok&&e.afford?'':' disabled')+'>Buy and equip</button>':'')+'</div></div>';
+    rows+='<div class="featrow'+(e.ok?'':' lockd')+'"><div><b>'+esc(it.n)+'</b> <span class="chip">'+(effPrice(c,it)!==it.price?'<s>'+fmt(it.price)+'</s> ':'')+fmt(effPrice(c,it))+' G</span><div class="tiny">'+esc(it.d)+'</div>'+haggleNote(c,it)+(e.ok?'':'<div class="tiny no">Locked: '+esc(e.why.join("; "))+'</div>')+(e.warn.length?'<div class="tiny no">'+esc(e.warn.join("; "))+'</div>':'')+'</div><div class="col" style="gap:4px;display:flex;flex-direction:column">'+
+      '<button data-shop="buy" data-i="'+idx+'"'+(e.ok&&e.afford?'':' disabled')+(e.ok&&!e.afford?' title="Not enough cash"':'')+'>'+(e.ok&&!e.afford?'Need '+fmt(effPrice(c,it)-(+c.cash||0))+' G':'Buy')+'</button>'+haggleBtn(c,it,idx,"buy",e.ok&&(+c.cash||0)>=Math.ceil(it.price*1.2))+((it.k==="w"||it.k==="a")?'<button data-shop="buyeq" data-i="'+idx+'"'+(e.ok&&e.afford?'':' disabled')+'>Buy and equip</button>':'')+'</div></div>';
   });
   h+='<div id="shopList" class="scroll" style="max-height:60vh;overflow-y:auto">'+(rows||'<div class="tiny">Nothing here matches.</div>')+'</div>'+(hidden?'<div class="tiny">'+hidden+' item'+(hidden===1?'':'s')+' hidden because this character cannot use '+(hidden===1?'it':'them')+'.</div>':'')+(shown>=90?'<div class="tiny">Showing the first 90. Use search to narrow the list.</div>':'');
   h+='<div class="tiny">Prices and details are summarized from CR I pp. 266-309 and the weapon lists in CR I-III; check the books for exact rules. Buying subtracts G from Cash and adds the item to the Inventory box on the sheet.</div>';
@@ -2640,16 +2796,16 @@ function shopCardHtml(){
 }
 function renderShop(){var b=$("shopBox");if(!b||$("p-shop").hidden)return;var f=document.activeElement;if(f&&b.contains(f)&&f.tagName==="INPUT"&&f.type==="search")return;b.innerHTML=shopCardHtml()}
 function shopBuy(c,it,equip){
-  var e=eligible(c,it);if(!e.ok||!e.afford)return;
-  c.cash=(+c.cash||0)-it.price;
+  var e=eligible(c,it);if(!e.ok||!e.afford)return;var pr=effPrice(c,it);
+  c.cash=(+c.cash||0)-pr;
   var nm=it.k==="w"?it.w[0]:it.n;
   c.inv=((c.inv||"")+((c.inv||"")?"\n":"")+"- "+nm+" ("+fmt(it.price)+" G)");
   var note="";
   if(equip&&it.k==="w"){c.weapons=c.weapons||[];while(c.weapons.length<5)c.weapons.push({});var s=-1;for(var i=0;i<5;i++){if(!c.weapons[i]||!c.weapons[i].n){s=i;break}}
     if(s<0)note=" (no free weapon row on the sheet, so it is only in the inventory)";else{c.weapons[s]=wToRow(it.w);c.weapons[s].cl="";c.weapons[s].note="";note=" and equipped it in weapon row "+(s+1)}}
   if(equip&&it.k==="a"){c.armor=c.armor||[{},{},{}];var a=it.a,sl=a[1]==="Shield"?1:0;c.armor[sl]={n:a[0],str:a[3],eva:a[4],def:a[5],note:a[7]};note=" and equipped it as their "+(sl?"shield":"armor")}
-  saveChar(c);addLog({kind:"sys",text:c.name+" bought "+nm+" for "+fmt(it.price)+" G"+note+"."});
-  setStatus(c.name+" bought "+nm+" for "+fmt(it.price)+" G"+note+".");renderShop();
+  saveChar(c);addLog({kind:"sys",text:c.name+" bought "+nm+" for "+fmt(pr)+" G"+note+"."});
+  setStatus(c.name+" bought "+nm+" for "+fmt(pr)+" G"+note+".");renderShop();
 }
 document.addEventListener("click",function(ev){
   var el=ev.target.closest&&ev.target.closest("[data-shop]");if(!el||!$("shopBox").contains(el))return;var f=el.dataset.shop,c=getChar(SU.cid);
@@ -2846,6 +3002,150 @@ function tagSheet(box){
     }
     e.dataset.g=g});
 }
+
+/* ---------- stage 2: feat shelf, sell, haggle ---------- */
+function shopCfg(){var c=S.shopCfg||{};var f=c.feat||{};return {feat:{I:+f.I>0?+f.I:500,II:+f.II>0?+f.II:1500,III:+f.III>0?+f.III:4000},sell:c.sell||{}}}
+window.__shopCfg={get:function(){return shopCfg()},set:function(v){return saveState({shopCfg:v})}};
+function hkey(it){return (it.cat||"")+"|"+it.n}
+function effPrice(c,it){var base=+it.price||0,h=(c.hag||{})[hkey(it)];return h&&h.pct?Math.round(base*(1+h.pct/100)):base}
+function shopModeRow(){return '<div class="subtabs">'+[["buy","Buy"],["feats","Combat Feats"],["sell","Sell"]].map(function(m){return '<button data-shop="mode" data-m="'+m[0]+'" aria-selected="'+((SU.mode||"buy")===m[0])+'">'+m[1]+'</button>'}).join("")+'</div>'}
+function haggleNote(c,it){var h=(c.hag||{})[hkey(it)];if(!h)return '';return '<div class="tiny">Haggled: you rolled '+h.p+', the DM rolled '+h.d+' &rarr; '+(h.pct<0?'20% off':h.pct>0?'20% more':'no change')+'.</div>'}
+function haggleBtn(c,it,idx,mode,ok){var h=(c.hag||{})[hkey(it)];return '<button data-shop="hag" data-i="'+idx+'" data-m="'+mode+'"'+(h||!ok?' disabled':'')+' title="Roll 2d6 against the DM. Win: 20% off. Lose: 20% more and you must buy. Once per item per day.">'+(h?'Haggled':'Haggle')+'</button>'}
+function featShelf(c){
+  var cf=shopCfg(),have=chosenFeats(c),D=compute(c),free=D.slots-D.used>0,out=[];
+  FEATS.forEach(function(f){
+    if(featHas(have,f[0]))return;if(featOK(c,f).length)return;
+    var tier=f[4]==="CR III"?"III":f[4]==="CR II"?"II":"I";
+    out.push({k:"f",n:f[0],price:cf.feat[tier],cat:"Feats",f:f,d:"["+FTN[f[1]]+"] "+f[3]+" ("+f[4]+")"})});
+  return {items:out,free:free,D:D}}
+function featShelfHtml(c){
+  var sh=featShelf(c),q=(SU.q||"").toLowerCase(),rows="",n=0;
+  sh.items.forEach(function(it,idx){
+    if(q&&(it.n+" "+it.d).toLowerCase().indexOf(q)<0)return;n++;
+    var ep=effPrice(c,it),aff=(+c.cash||0)>=ep,can=sh.free&&aff;
+    rows+='<div class="featrow"><div><b>'+esc(it.n)+'</b> <span class="chip">'+(ep!==it.price?'<s>'+fmt(it.price)+'</s> ':'')+fmt(ep)+' G</span><div class="tiny">'+esc(it.d)+'</div>'+haggleNote(c,it)+'</div><div style="display:flex;flex-direction:column;gap:4px"><button data-shop="buyfeat" data-i="'+idx+'"'+(can?'':' disabled')+'>'+(!sh.free?'No free slot':!aff?'Need '+fmt(ep-(+c.cash||0))+' G':'Buy')+'</button>'+haggleBtn(c,it,idx,"feats",sh.free&&(+c.cash||0)>=Math.ceil(it.price*1.2))+'</div></div>'});
+  return '<div class="tiny">Feat slots: '+sh.D.used+' used of '+sh.D.slots+'. Only feats '+esc(c.name)+' qualifies for by class and level are shown, and feats already owned are hidden. Prices: CR I '+fmt(shopCfg().feat.I)+' G, CR II '+fmt(shopCfg().feat.II)+' G, CR III '+fmt(shopCfg().feat.III)+' G.</div>'+
+    '<input id="shopQ" type="search" placeholder="Search feats" value="'+esc(SU.q)+'">'+
+    '<div id="shopList" class="scroll" style="max-height:60vh;overflow-y:auto">'+(rows||'<div class="tiny">No feats to buy right now. Level up a class, or you already own everything you qualify for.</div>')+'</div>'}
+function buyFeat(c,it){
+  var sh=featShelf(c);if(!sh.free){setStatus(c.name+" has no free feat slot.");return}
+  var ep=effPrice(c,it);if((+c.cash||0)<ep){setStatus("Not enough cash.");return}
+  c.feats=c.feats||[];c.fx=c.fx||[];var i=-1;for(var k=0;k<8;k++){if(!c.feats[k]||!String(c.feats[k]).trim()){i=k;break}}
+  if(i<0){setStatus("All 8 feat rows on the sheet are full.");return}
+  c.cash=(+c.cash||0)-ep;c.feats[i]=it.f[0];c.fx[i]="["+FTN[it.f[1]]+"] "+it.f[3];shSaved=0;saveChar(c);
+  slog(c.name+" bought the combat feat "+it.n+" for "+fmt(ep)+" G.");setStatus(c.name+" learned "+it.n+" for "+fmt(ep)+" G.");renderChars();renderShop()}
+function basePrice(n){
+  var o=shopCfg().sell;if(o[n]!=null&&+o[n]>0)return +o[n];
+  var w=WPN.filter(function(x){return x[0]===n})[0];if(w&&w[9])return w[9];
+  var a=ARMORS.filter(function(x){return x[0]===n})[0];if(a&&a[6])return a[6];
+  var i=SHOPITEMS.filter(function(x){return x[1]===n})[0];if(i&&i[2])return i[2];
+  return 0}
+function sellHtml(c){
+  var ls=invLines(c),q=(SU.q||"").toLowerCase(),rows="";
+  ls.forEach(function(l,i){var n=invName(l),qty=lnQty(l);if(q&&n.toLowerCase().indexOf(q)<0)return;
+    var bp=basePrice(n),sp=Math.floor(bp/2);
+    rows+='<div class="featrow"><div><b>'+esc(n)+'</b>'+(qty>1?' x'+qty:'')+(sp?' <span class="chip">sells for '+fmt(sp)+' G each</span>':'<div class="tiny no">No shop price, so it cannot be sold. Ask the DM to set a price in Admin.</div>')+'</div><div style="display:flex;gap:4px;flex-wrap:wrap"><button data-shop="sell" data-i="'+i+'"'+(sp?'':' disabled')+'>Sell 1</button>'+(qty>1?'<button data-shop="sell" data-i="'+i+'" data-all="1"'+(sp?'':' disabled')+'>Sell all</button>':'')+'</div></div>'});
+  return '<div class="tiny">Shopkeepers pay half the shop price. Take off worn gear first (Party &gt; Adventurer &gt; Inventory) to sell it.</div><input id="shopQ" type="search" placeholder="Search your items" value="'+esc(SU.q)+'"><div id="shopList" class="scroll" style="max-height:60vh;overflow-y:auto">'+(rows||'<div class="tiny">Nothing to sell.</div>')+'</div>'}
+function sellItem(c,i,all){
+  var ls=invLines(c),l=ls[i];if(!l)return;var n=invName(l),sp=Math.floor(basePrice(n)/2);if(!sp)return;
+  var m=lnTake(ls,i,all?lnQty(l):1);c.inv=ls.join("\n");var g=sp*m.qty;c.cash=(+c.cash||0)+g;saveChar(c);
+  slog(c.name+" sold "+(m.qty>1?m.qty+" x ":"")+n+" for "+fmt(g)+" G.");setStatus(c.name+" sold "+n+" for "+fmt(g)+" G.");renderShop()}
+function haggle(c,it,mode){
+  var key=hkey(it);c.hag=c.hag||{};if(c.hag[key])return;
+  var base=+it.price||0;if((+c.cash||0)<Math.ceil(base*1.2)){setStatus("You need at least "+fmt(Math.ceil(base*1.2))+" G to risk a haggle on "+it.n+".");return}
+  var p=d6()+d6(),d=d6()+d6(),pct=p>d?-20:p<d?20:0;c.hag[key]={pct:pct,p:p,d:d};
+  var msg=c.name+" haggles for "+it.n+": "+p+" against the DM's "+d+(pct<0?". A win: 20% off, now "+fmt(effPrice(c,it))+" G.":pct>0?". A loss: 20% more ("+fmt(effPrice(c,it))+" G) and the purchase is forced.":". A tie: the price stays "+fmt(base)+" G.");
+  slog(msg);setStatus(msg);saveChar(c);
+  if(pct>0){if(mode==="feats")buyFeat(c,it);else shopBuy(c,it,false)}
+  renderShop()}
+document.addEventListener("click",function(ev){
+  var el=ev.target.closest&&ev.target.closest("[data-shop]");if(!el||!$("shopBox").contains(el))return;var f=el.dataset.shop,c=getChar(SU.cid);if(!c)return;
+  if(f==="mode"){SU.mode=el.dataset.m;SU.q="";renderShop()}
+  else if(f==="buyfeat"){var it=featShelf(c).items[+el.dataset.i];if(it)buyFeat(c,it)}
+  else if(f==="sell")sellItem(c,+el.dataset.i,!!el.dataset.all);
+  else if(f==="hag"){var m=el.dataset.m,it2=m==="feats"?featShelf(c).items[+el.dataset.i]:shopItems(SU.cat)[+el.dataset.i];if(it2&&(m==="feats"||eligible(c,it2).ok))haggle(c,it2,m)}
+});
+
+/* ---------- stage 3: missions ---------- */
+var MISSIONS0=[
+ {id:"m1",title:"Marmalade the Missing Cat",desc:"The baker's daughter has not seen her orange cat since the fish market closed. Look near the docks and bring Marmalade home.",min:1,max:2,obj:[{k:"step",text:"Find Marmalade near the Harves docks"},{k:"step",text:"Return the cat to the baker's daughter"}],rw:{gold:60,xp:50,shards:0,items:[]}},
+ {id:"m2",title:"Goblins in the Cellar",desc:"Marta Brine heard scratching under the Salt and Lantern. Goblins have tunnelled into the cellar. Clear them out.",min:1,max:3,obj:[{k:"kill",n:4,name:"goblin"}],rw:{gold:150,xp:120,shards:0,items:["Lifegrass"]}},
+ {id:"m3",title:"Kobold Raiders on the Road",desc:"Kobolds are robbing carts on the road out of town. Drive them off before the merchants stop coming.",min:1,max:3,obj:[{k:"kill",n:3,name:"kobold"}],rw:{gold:120,xp:100,shards:0,items:["Lifegrass x2"]}},
+ {id:"m4",title:"A Basket of Lifegrass",desc:"The healer's shelves are bare. Bring three bundles of Lifegrass (buy them or find them).",min:1,max:3,obj:[{k:"item",n:3,name:"Lifegrass"}],rw:{gold:150,xp:60,shards:0,items:[]}},
+ {id:"m5",title:"Wolves at the Sheep Pens",desc:"A pack of wolves is circling the farms at dusk. Protect the sheep.",min:1,max:3,obj:[{k:"kill",n:3,name:"wolf"}],rw:{gold:180,xp:150,shards:0,items:[]}},
+ {id:"m6",title:"Bats in the Bell Tower",desc:"The temple bell cannot ring for the bats nesting inside it. Clear the tower.",min:1,max:2,obj:[{k:"kill",n:4,name:"bat"}],rw:{gold:100,xp:80,shards:0,items:[]}},
+ {id:"m7",title:"Slime in the Well",desc:"The north well has gone sticky and the water tastes odd. Something living is down there.",min:1,max:3,obj:[{k:"kill",n:3,name:"slime"}],rw:{gold:130,xp:100,shards:0,items:[]}},
+ {id:"m8",title:"Torches for the Night Watch",desc:"The watch has run out of torches before the festival. Bring four sets.",min:1,max:2,obj:[{k:"item",n:4,name:"Torch (set of 6)"}],rw:{gold:80,xp:50,shards:0,items:[]}},
+ {id:"m9",title:"Bandit Toll on the Old Bridge",desc:"Bandits are charging travellers a toll at the old stone bridge. Teach them better manners.",min:2,max:3,obj:[{k:"kill",n:3,name:"bandit"}],rw:{gold:250,xp:200,shards:0,items:[]}},
+ {id:"m10",title:"The Lantern Lighter's Lost Key",desc:"Old Pell lost the key to the harbour lamp room. Ask around, search the dockside sheds and return it.",min:1,max:2,obj:[{k:"step",text:"Ask Marta Brine what she saw"},{k:"step",text:"Search the dockside sheds for the key"},{k:"step",text:"Return the key to Pell"}],rw:{gold:90,xp:80,shards:0,items:[]}},
+ {id:"m11",title:"Boar in the Turnip Field",desc:"A pair of boars are wrecking a farmer's turnips. He will pay and feed you well.",min:1,max:3,obj:[{k:"kill",n:2,name:"boar"}],rw:{gold:140,xp:120,shards:0,items:["Preserved Food (1 week)"]}},
+ {id:"m12",title:"Skeletons in the Old Crypt",desc:"The bones in the old crypt are walking again. Put them back to rest.",min:2,max:3,obj:[{k:"kill",n:4,name:"skeleton"}],rw:{gold:300,xp:250,shards:1,items:[]}},
+ {id:"m13",title:"Escort the Pie Merchant",desc:"A nervous pie merchant needs to reach the next village with all his pies and his skin intact.",min:1,max:3,obj:[{k:"step",text:"Meet the merchant at the town gate"},{k:"step",text:"Keep him safe on the road"},{k:"step",text:"Deliver him to the village"}],rw:{gold:110,xp:90,shards:0,items:["Preserved Food (1 day)"]}},
+ {id:"m14",title:"Old Hobb's Spectacles",desc:"Old Hobb has misplaced his spectacles again. Last seen near the tavern fireplace, or possibly with the tavern cat.",min:1,max:1,obj:[{k:"step",text:"Search the Salt and Lantern"},{k:"step",text:"Give the spectacles back to Hobb"}],rw:{gold:70,xp:40,shards:0,items:[]}},
+ {id:"m15",title:"The Ogre at Miller's Ford",desc:"An ogre has taken the ford and nobody can cross. This is a real fight. Prepare.",min:3,max:3,obj:[{k:"kill",n:1,name:"ogre"}],rw:{gold:400,xp:400,shards:1,items:["Healing Potion"]}}
+];
+function MISS(){var c=S.missionCfg;return c&&Array.isArray(c.list)?c.list:MISSIONS0}
+function msGet(){var m=S.missions||{};return {act:m.act||[],done:m.done||[],cnt:m.cnt||[]}}
+function msSave(m){return saveState({missions:m})}
+function mFind(id){return MISS().filter(function(x){return x.id===id})[0]}
+function partyCount(name){var n=0,t=String(name).toLowerCase();chars.forEach(function(c){invLines(c).forEach(function(l){if(invName(l).toLowerCase()===t)n+=lnQty(l)})});lnLines(gInv().inv).forEach(function(l){if(invName(l).toLowerCase()===t)n+=lnQty(l)});return n}
+function objDone(a,o,i){return o.k==="kill"?(+a.p[i]||0)>=o.n:o.k==="item"?partyCount(o.name)>=o.n:!!a.p[i]}
+function objText(o){return o.k==="kill"?"kill "+o.n+" "+o.name:o.k==="item"?"item "+o.n+" "+o.name:"step "+o.text}
+function objParse(l){l=String(l).trim();var m;if(m=l.match(/^kill\s+(\d+)\s*(.*)$/i))return {k:"kill",n:+m[1],name:m[2].trim().toLowerCase()};if(m=l.match(/^item\s+(\d+)\s+(.+)$/i))return {k:"item",n:+m[1],name:m[2].trim()};if(m=l.match(/^step\s+(.+)$/i))return {k:"step",text:m[1].trim()};return null}
+function takeParty(name,n){var t=String(name).toLowerCase(),left=n;
+  var g=gInv(),gl=lnLines(g.inv);for(var i=0;i<gl.length&&left>0;i++){if(invName(gl[i]).toLowerCase()===t){var q=Math.min(left,lnQty(gl[i]));lnTake(gl,i,q);left-=q;i--}}
+  if(left<n)saveG(gl.join("\n"),g.gold);
+  chars.forEach(function(c){if(left<=0)return;var ls=invLines(c),ch=false;for(var i=0;i<ls.length&&left>0;i++){if(invName(ls[i]).toLowerCase()===t){var q=Math.min(left,lnQty(ls[i]));lnTake(ls,i,q);left-=q;i--;ch=true}}if(ch){c.inv=ls.join("\n");saveChar(c)}})}
+function rwText(r){var p=[];if(r.gold)p.push(fmt(r.gold)+" G");if(r.xp)p.push(fmt(r.xp)+" XP each");if(r.shards)p.push(r.shards+" sword shard"+(r.shards>1?"s":""));(r.items||[]).forEach(function(i){p.push(i)});return p.join(", ")||"none"}
+function missionKills(foes,combatId){
+  var m=msGet();if(combatId&&m.cnt.indexOf(combatId)>=0)return;var hit=false;
+  m.act.forEach(function(a){var ms=mFind(a.id);if(!ms)return;a.p=a.p||[];ms.obj.forEach(function(o,i){if(o.k!=="kill")return;var n=foes.filter(function(f){var nm=String(f.nm||f).toLowerCase();return !o.name||nm.indexOf(o.name)>=0}).length;if(n){a.p[i]=Math.min(o.n,(+a.p[i]||0)+n);hit=true}})});
+  if(combatId){m.cnt.push(combatId);m.cnt=m.cnt.slice(-20)}
+  if(hit||combatId){msSave(m);if(hit)slog("Mission progress updated from the fight.")}}
+function missionSteps(list){
+  if(!Array.isArray(list)||!list.length)return;var m=msGet(),hit=false;
+  list.forEach(function(s){var q=String(s).split("#"),a=m.act.filter(function(x){return x.id===q[0]})[0],ms=a&&mFind(a.id),i=+q[1];if(!a||!ms||!ms.obj[i]||ms.obj[i].k!=="step")return;a.p=a.p||[];if(!a.p[i]){a.p[i]=1;hit=true;slog("Mission step done: "+ms.title+": "+ms.obj[i].text+".")}});
+  if(hit)msSave(m)}
+function missionPrompt(){var m=msGet(),ls=[];m.act.forEach(function(a){var ms=mFind(a.id);if(!ms)return;ms.obj.forEach(function(o,i){if(o.k==="step"&&!(a.p||[])[i])ls.push(a.id+"#"+i+": "+ms.title+" - "+o.text)})});return "ACTIVE MISSION STEPS (list a step id in mission_steps only when the story you narrate clearly completes it): "+(ls.join("; ")||"none")}
+function msAccept(id){var m=msGet();if(m.act.length>=3){setStatus("The party can have at most 3 active missions.");return}if(m.done.indexOf(id)>=0||m.act.some(function(a){return a.id===id}))return;var ms=mFind(id);if(!ms)return;m.act.push({id:id,p:[]});msSave(m);slog("The party accepted the mission: "+ms.title+".")}
+function msAbandon(id){var m=msGet();m.act=m.act.filter(function(a){return a.id!==id});msSave(m);var ms=mFind(id);slog("The party set aside the mission: "+(ms?ms.title:id)+".")}
+function msComplete(id){
+  var m=msGet(),a=m.act.filter(function(x){return x.id===id})[0],ms=mFind(id);if(!a||!ms)return;
+  if(!ms.obj.every(function(o,i){return objDone(a,o,i)})){setStatus("That mission is not finished yet.");return}
+  ms.obj.forEach(function(o){if(o.k==="item")takeParty(o.name,o.n)});
+  var g=gInv(),gl=lnLines(g.inv),r=ms.rw||{};(r.items||[]).forEach(function(s){var q=s.match(/^(.*?)\s+x(\d+)$/);lnPut(gl,q?q[1]:s,q?+q[2]:1)});
+  saveG(gl.join("\n"),g.gold+(+r.gold||0));
+  if(+r.xp)chars.forEach(function(c){if(!c.dead){c.xp=(+c.xp||0)+(+r.xp);saveChar(c)}});
+  var nm={act:m.act.filter(function(x){return x.id!==id}),done:m.done.concat([id]),cnt:m.cnt};msSave(nm);
+  if(+r.shards)saveState({shards:(+S.shards||0)+(+r.shards)});
+  slog("Mission complete: "+ms.title+"! Rewards: "+rwText(r)+". Gold and items went to the group inventory.");setStatus("Mission complete: "+ms.title+".")}
+function missionCard(ms,a,done){
+  var h='<div class="card"><h4 style="margin:0">'+esc(ms.title)+' <span class="chip">Lv '+ms.min+(ms.max!==ms.min?'-'+ms.max:'')+'</span></h4><div class="tiny">'+esc(ms.desc)+'</div>';
+  h+='<ul style="margin:6px 0 6px 18px;padding:0">'+ms.obj.map(function(o,i){
+    var txt,ok=a?objDone(a,o,i):false;
+    if(o.k==="kill")txt='Defeat '+o.n+' '+esc(o.name||'monster')+(o.n>1?'s':'')+(a?' ('+Math.min(o.n,+a.p[i]||0)+'/'+o.n+')':'');
+    else if(o.k==="item")txt='Hand over '+o.n+' '+esc(o.name)+(a?' (party has '+Math.min(o.n,partyCount(o.name))+'/'+o.n+')':'');
+    else txt=esc(o.text);
+    return '<li'+(ok?' style="text-decoration:line-through;opacity:.7"':'')+'>'+txt+(a&&o.k==="step"&&!ok&&window.__isAdmin?' <button data-ms="step" data-id="'+esc(ms.id)+'" data-i="'+i+'">Mark done</button>':'')+'</li>'}).join("")+'</ul>';
+  h+='<div class="tiny"><b>Reward:</b> '+esc(rwText(ms.rw||{}))+'</div>';
+  if(!done){h+='<div class="row">';
+    if(a){var all=ms.obj.every(function(o,i){return objDone(a,o,i)});h+='<button class="primary" data-ms="done" data-id="'+esc(ms.id)+'"'+(all?'':' disabled')+'>Turn in</button><button data-ms="drop" data-id="'+esc(ms.id)+'">Set aside</button>'}
+    else h+='<button class="primary" data-ms="acc" data-id="'+esc(ms.id)+'"'+(msGet().act.length>=3?' disabled title="3 missions are already active"':'')+'>Accept</button>';
+    h+='</div>'}
+  return h+'</div>'}
+function renderMissions(){
+  var b=$("missionBox");if(!b)return;var m=msGet(),L=MISS();
+  var act=m.act.map(function(a){return {a:a,ms:mFind(a.id)}}).filter(function(x){return x.ms});
+  var av=L.filter(function(x){return m.done.indexOf(x.id)<0&&!m.act.some(function(a){return a.id===x.id})});
+  var dn=L.filter(function(x){return m.done.indexOf(x.id)>=0});
+  b.innerHTML='<div class="tiny">The party can hold up to 3 missions. Rewards: gold and items go to the group inventory, XP to every hero, shards to the shared total. Kills and items count automatically; story steps are ticked when the DM narrates them.</div>'+
+   '<h4>Active ('+act.length+'/3)</h4>'+(act.length?act.map(function(x){return missionCard(x.ms,x.a)}).join(""):'<div class="tiny">No active missions. Accept one below.</div>')+
+   '<h4>Available</h4>'+(av.length?av.map(function(x){return missionCard(x)}).join(""):'<div class="tiny">Nothing posted right now.</div>')+
+   (dn.length?'<details><summary>Completed ('+dn.length+')</summary>'+dn.map(function(x){return missionCard(x,null,true)}).join("")+'</details>':'')}
+document.addEventListener("click",function(ev){
+  var el=ev.target.closest&&ev.target.closest("[data-ms]");if(!el||!$("missionBox").contains(el))return;var f=el.dataset.ms,id=el.dataset.id;
+  if(f==="acc")msAccept(id);else if(f==="drop")msAbandon(id);else if(f==="done")msComplete(id);else if(f==="step")missionSteps([id+"#"+el.dataset.i])});
+window.__missions={get:function(){return MISS()},set:function(l){return saveState({missionCfg:{list:l}})},reset:function(){return saveState({missionCfg:null})},parse:objParse,text:objText,kills:missionKills,steps:missionSteps};
 
 /* ---------- boot ---------- */
 kindUi(); render(); renderQuest(); refreshPickers();
