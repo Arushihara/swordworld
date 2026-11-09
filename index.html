@@ -96,8 +96,6 @@ details summary{cursor:pointer;color:var(--teal)}
 
 .lvt{max-height:170px;overflow-y:auto;margin:4px 0}.lvt tr.have td{opacity:.6}.lvt tr.next td{font-weight:700}.lvt tr.locked td{opacity:.4}
 .lvl{display:inline-flex;align-items:center;gap:4px}.lvl button{padding:2px 8px;min-width:30px}
-#sheetView{position:fixed;inset:0;z-index:60;background:var(--bg);overflow:auto;padding:12px}
-#sheetView .shbar{display:flex;gap:8px;align-items:center;position:sticky;top:0;background:var(--bg);padding:4px 0 8px;z-index:2;flex-wrap:wrap}
 #sheetBody{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;max-width:1500px;margin:0 auto}
 @media(min-width:1000px){#sheetBody{grid-template-columns:minmax(0,1fr) minmax(0,1.25fr)}}
 #sheetBody .sh1,#sheetBody .sh2{display:flex;flex-direction:column;gap:8px;min-width:0}
@@ -112,8 +110,26 @@ details summary{cursor:pointer;color:var(--teal)}
 .o.big{font-weight:800;font-size:1.05rem}.featrow{display:flex;gap:8px;justify-content:space-between;align-items:flex-start;border-bottom:1px solid var(--line);padding:5px 0}.ok{color:#2e8b57}.shpill{display:inline-block;border:1.5px solid var(--line);border-radius:999px;padding:2px 10px;margin:2px}
 .chip{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:2px 8px;font-size:.78rem}.chip button{padding:0 6px;margin-left:4px}
 .wwarn td{text-align:left;font-size:.72rem;border:0;padding:0 4px}
-body.shopen{overflow:hidden}
-@media print{body.shopen>*:not(#sheetView){display:none!important}#sheetView{position:static;overflow:visible}#sheetView .shbar{display:none}#sheetBody{grid-template-columns:1fr 1fr}}
+@media print{body.pprint>*:not(.grid){display:none!important}body.pprint .tabs,body.pprint #partySubs,body.pprint #advSubs,body.pprint #advPickRow{display:none!important}}
+[hidden]{display:none!important}
+.subtabs{display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid var(--line,#8884);padding-bottom:6px}
+.subtabs button[aria-selected="true"]{background:var(--gold,#d4a24a);color:#1a1206;font-weight:700}
+#pp-adv{display:flex;flex-direction:column;gap:10px}
+#pp-adv:not([data-sub="full"]) [data-g="full"]{display:none}
+#pp-adv[data-sub="info"] [data-g]:not([data-g="info"]){display:none}
+#pp-adv[data-sub="abil"] [data-g]:not([data-g="abil"]){display:none}
+#pp-adv[data-sub="race"] [data-g]:not([data-g="race"]){display:none}
+#pp-adv[data-sub="inv"] [data-g]:not([data-g="inv"]){display:none}
+#pp-adv[data-sub="inv"] #chars,#pp-adv[data-sub="full"] #chars{display:none}
+#pp-adv:not([data-sub="full"]) #sheetBody{grid-template-columns:minmax(0,1fr)}
+#pp-adv .abh{margin:4px 0;font-size:16px}
+.ord button{padding:0 4px;margin-left:2px;font-size:11px}
+.invrow,.itm{display:flex;gap:8px;align-items:center;justify-content:space-between;padding:4px 0;border-bottom:1px dashed #8883;flex-wrap:wrap}
+.invrow select{max-width:60%}
+.gcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+.gcols{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px}
+.bar{height:7px;border-radius:4px;background:#8883;overflow:hidden}.bar i{display:block;height:100%;background:#c0392b}
+.dice3 .tiny{display:block}
 
 .cbox{--cb-bg:#14110f;--cb-pn:#1d1916;--cb-ln:#3a322b;--cb-tx:#ece4d6;--cb-mu:#a39786;--cb-gold:#d4a24a;--cb-red:#c0392b;--cb-blue:#3b82c4;border:1px solid var(--cb-ln);border-radius:12px;background:var(--cb-bg);color:var(--cb-tx);padding:12px;margin-bottom:10px;display:flex;flex-direction:column;gap:12px;max-height:84vh;overflow-y:auto}
 .cbox .tiny,.cbox label{color:var(--cb-mu)}.cbox button{background:var(--cb-pn);color:var(--cb-tx);border:1px solid var(--cb-ln)}.cbox button.primary{background:var(--cb-red);border-color:var(--cb-red);color:#fff}.cbox select,.cbox input{background:#0e0c0a;color:var(--cb-tx);border:1px solid var(--cb-ln)}.cbox .chip{background:#2a231d;color:var(--cb-gold);border:1px solid var(--cb-ln)}.cbox .no{color:#ff8a78}
@@ -225,8 +241,17 @@ body.shopen{overflow:hidden}
     </div>
 
     <div id="p-party" class="sec" hidden>
-      <div id="chars"></div>
-      <div class="row"><button id="addChar" class="primary">Add character</button></div>
+      <div id="partySubs" class="subtabs" role="tablist"><button id="ps-adv" data-ps="adv" role="tab">Adventurer</button><button id="ps-group" data-ps="group" role="tab">Group</button><button id="ps-ginv" data-ps="ginv" role="tab">Group Inventory</button></div>
+      <div id="pp-adv">
+        <div class="row" id="advPickRow" hidden><label>Adventurer <select id="advPick"></select></label></div>
+        <div id="advRO" class="tiny" hidden>Viewing another player's sheet. It is read only.</div>
+        <div id="advSubs" class="subtabs" role="tablist"><button id="as-info" data-as="info" role="tab">Information</button><button id="as-abil" data-as="abil" role="tab">Abilities &amp; Classes</button><button id="as-race" data-as="race" role="tab">Race &amp; Background</button><button id="as-inv" data-as="inv" role="tab">Inventory</button><button id="as-full" data-as="full" role="tab">Full sheet</button><button id="advPrint" type="button">Print</button></div>
+        <div id="chars"></div>
+        <div id="sheetBody"></div>
+        <div class="row"><button id="addChar" class="primary">Add character</button></div>
+      </div>
+      <div id="pp-group" hidden></div>
+      <div id="pp-ginv" hidden></div>
     </div>
 
     <div id="p-shop" class="sec" hidden><div id="shopBox"></div></div>
@@ -249,7 +274,6 @@ body.shopen{overflow:hidden}
 </div>
 </div>
 
-<div id="sheetView" hidden role="dialog" aria-label="Character sheet"><div class="shbar"><button data-sh="close" class="primary">Close sheet</button><button data-sh="print">Print</button><span class="tiny">Mirrors the official Sword World 2.5 character sheet. Everything saves automatically.</span></div><div id="sheetBody"></div></div>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -396,11 +420,11 @@ function enter(){
 }
 
 /* ---------- DM seat: Anthropic call, request queue, presence ---------- */
-var dmCfg={key:"",model:MODELS[0][0],guide:""}, dmUnsub=null;
+var dmCfg={key:"",model:MODELS[0][0],effort:"low",guide:""}, dmUnsub=null;
 function callAnthropic(prompt){
   if(!dmCfg.key){var e=new Error("The DM has not added an API key yet (Admin menu).");e.code="no_key";return Promise.reject(e)}
   return fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"content-type":"application/json","x-api-key":dmCfg.key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
-    body:JSON.stringify({model:dmCfg.model||MODELS[0][0],max_tokens:1800,messages:[{role:"user",content:String(prompt).split("[[GUIDE]]").join(dmCfg.guide||"(no campaign guide has been loaded)")}]})})
+    body:JSON.stringify((function(){var m=dmCfg.model||MODELS[0][0],b={model:m,max_tokens:1800,output_config:{effort:dmCfg.effort||"low"},messages:[{role:"user",content:String(prompt).split("[[GUIDE]]").join(dmCfg.guide||"(no campaign guide has been loaded)")}]};if(/haiku/.test(m))b.thinking={type:"disabled"};return b})())})
   .then(function(r){return r.json().catch(function(){return {}}).then(function(j){
     if(r.ok){var t=(j.content||[]).map(function(c){return c.text||""}).join("");return {text:t}}
     var e=new Error((j.error&&j.error.message)||("The AI service said "+r.status));
@@ -423,7 +447,7 @@ function serveQueue(){
 var beat=0;
 function startDmSeat(){
   fs.doc("config/dm").onSnapshot(function(s){
-    var d=s.exists?s.data():{};dmCfg.key=d.key||"";dmCfg.model=d.model||MODELS[0][0];refreshBar();
+    var d=s.exists?s.data():{};dmCfg.key=d.key||"";dmCfg.model=d.model||MODELS[0][0];dmCfg.effort=d.effort||"low";refreshBar();
   },function(){});
   fs.doc("config/guide").onSnapshot(function(s){dmCfg.guide=s.exists?(s.data().text||""):""},function(){});
   serveQueue();
@@ -497,7 +521,7 @@ function renderAdmin(){
   adm.innerHTML='<div class="ap"><div class="row" style="justify-content:space-between"><h2>Admin</h2><button id="admX">Close</button></div><div id="admMsg" class="tiny"></div>'+
    '<section><h3>Table code</h3><div class="tiny">New players enter this to join. Change it to close the table to anyone who does not have it yet.</div><div class="row"><input id="admCode" placeholder="loading..."><button id="admCodeSave">Save code</button></div></section>'+
    '<section><h3>DM seat (Anthropic API key)</h3><div class="tiny">The key is kept in a document only your account can read. Your browser answers every player message, so keep this page open during sessions. Set a monthly spend limit in the Anthropic console.</div>'+
-   '<div class="row"><input id="admKey" type="password" placeholder="'+(dmCfg.key?"key saved (ends "+esc(dmCfg.key.slice(-4))+"), paste to replace":"sk-ant-...")+'" autocomplete="off" style="flex:1;min-width:220px"><select id="admModel">'+MODELS.map(function(m){return '<option value="'+m[0]+'"'+(m[0]===dmCfg.model?" selected":"")+'>'+esc(m[1])+'</option>'}).join("")+'</select></div>'+
+   '<div class="row"><input id="admKey" type="password" placeholder="'+(dmCfg.key?"key saved (ends "+esc(dmCfg.key.slice(-4))+"), paste to replace":"sk-ant-...")+'" autocomplete="off" style="flex:1;min-width:220px"><select id="admModel">'+MODELS.map(function(m){return '<option value="'+m[0]+'"'+(m[0]===dmCfg.model?" selected":"")+'>'+esc(m[1])+'</option>'}).join("")+'</select><select id="admEffort" title="How hard the DM thinks. Lower is cheaper and faster.">'+[["low","Effort: low (cheapest, default)"],["medium","Effort: medium"],["high","Effort: high"]].map(function(m){return '<option value="'+m[0]+'"'+(m[0]===(dmCfg.effort||"low")?" selected":"")+'>'+m[1]+'</option>'}).join("")+'</select></div>'+
    '<div class="row"><button id="admKeySave" class="primary">Save</button><button id="admTest">Test the DM</button></div></section>'+
    '<section><h3>Campaign guide (DM only)</h3><div class="tiny">The hidden story notes the DM uses. They live only in your admin-only data, not in the web page. Load dm-guide.txt from your zip once, or paste your own.</div>'+
    '<textarea id="admGuide" rows="5" placeholder="loading..." style="width:100%"></textarea><div class="row"><button id="admGuideSave">Save guide</button><label style="flex-direction:row;align-items:center;gap:6px;text-transform:none;letter-spacing:0">Load from file <input id="admGuideFile" type="file" accept=".txt,text/plain"></label></div></section>'+
@@ -509,9 +533,9 @@ function renderAdmin(){
   fs.doc("config/table").get().then(function(s){g("admCode").value=s.exists?(s.data().code||""):"";g("admCode").placeholder=""});
   g("admCodeSave").onclick=function(){var c=g("admCode").value.trim();if(!c){note("The table code cannot be empty.",1);return}fs.doc("config/table").set({code:c}).then(function(){note("Table code saved.")},function(e){note(errText(e),1)})};
   g("admKeySave").onclick=function(){
-    var k=g("admKey").value.trim()||dmCfg.key,m=g("admModel").value;
+    var k=g("admKey").value.trim()||dmCfg.key,m=g("admModel").value,ef=g("admEffort").value;
     if(!k){note("Paste your API key first.",1);return}
-    fs.doc("config/dm").set({key:k,model:m}).then(function(){g("admKey").value="";note("Saved. The DM seat is active while this page is open.")},function(e){note(errText(e),1)});
+    fs.doc("config/dm").set({key:k,model:m,effort:ef}).then(function(){g("admKey").value="";note("Saved. The DM seat is active while this page is open.")},function(e){note(errText(e),1)});
   };
   g("admTest").onclick=function(){note("Asking the DM...");callAnthropic("Reply with the single word OK.").then(function(r){note("The DM answered: "+String(r.text).slice(0,60))},function(e){note(e.message,1)})};
   fs.doc("config/guide").get().then(function(s){var t=g("admGuide");if(t){t.value=s.exists?(s.data().text||""):"";t.placeholder="Paste the campaign guide here"}});
@@ -602,7 +626,7 @@ var GUIDE="[[GUIDE]]";
 
 /* ---------- state ---------- */
 var db=null, sample=null, me=null;
-var S={episode:0,sitting:"A",scene:"calm",shards:0,quests:[],summary:"",busy:null,terrain:"road",combat:null};
+var S={episode:0,sitting:"A",scene:"calm",shards:0,quests:[],summary:"",busy:null,terrain:"road",combat:null,ginv:null};
 window.__S=function(){return S};
 var logs=[], chars=[];
 var sceneOver=null, TERRS_OK=["road","fields","woods","mountain","town","cave"];
@@ -708,7 +732,8 @@ try{var sv=localStorage.getItem("vvol"); if(sv!==null)$("vvol").value=sv}catch(e
 
 document.addEventListener("click",function(e){var d=$("rbMenu"); if(d&&d.open&&!d.contains(e.target))d.open=false});document.addEventListener("keydown",function(e){if(e.key==="Escape"){var d=$("rbMenu"); if(d)d.open=false}});
 /* ---------- tabs ---------- */
-function tab(n){["dice","party","quest","shop"].forEach(function(k){$("p-"+k).hidden=k!==n;$("t-"+k).setAttribute("aria-selected",k===n)}); document.querySelector(".grid").classList.toggle("wide",n!=="dice")}
+function tab(n){if(n==="party"){try{advAfter()}catch(e){}}
+  ["dice","party","quest","shop"].forEach(function(k){$("p-"+k).hidden=k!==n;$("t-"+k).setAttribute("aria-selected",k===n)}); document.querySelector(".grid").classList.toggle("wide",n!=="dice")}
 ["dice","party","quest","shop"].forEach(function(k){$("t-"+k).onclick=function(){tab(k);if(k==="shop")renderShop()}});
 
 /* ---------- race and class reference (paraphrased; page numbers point to the Core Rulebooks) ---------- */
@@ -1403,12 +1428,12 @@ function shRender(){
   h+='<div class="shbox"><h5>Ability Scores</h5><div class="tiny">Score = base + die + growth. Fill the bases and dice and the scores calculate; leave the dice empty to type scores in the party card instead.</div><table class="shtab ab"><thead><tr><th>Base</th><th>Die</th><th>Growth</th><th>Ability</th><th>Score</th><th>Bonus</th></tr></thead><tbody>';
   bases.forEach(function(b){[[b[2],b[3]],[b[4],b[5]]].forEach(function(p,i){
     h+='<tr>'+(i===0?'<td rowspan="2">'+b[1]+nv("sb."+b[0],56)+'</td>':'')+'<td>'+p[1].toUpperCase()+nv("dice."+p[1],44)+'</td><td>'+nv("gr."+p[0],44)+'</td><td>'+names[p[0]]+'</td><td>'+shO("s_"+p[0],"big")+'</td><td>'+shO("b_"+p[0])+'</td></tr>'})});
-  h+='</tbody></table><div class="row" style="gap:6px"><button data-sh="rolldice">Roll dice A to F</button><button data-sh="fillbg"'+(race&&c.bg?'':' disabled')+'>Fill bases from background</button></div></div>';
+  h+='</tbody></table><div class="row" style="gap:6px"><button data-sh="rolldice"'+(c.diceLocked&&!window.__isAdmin?' disabled':'')+'>Roll dice A to F (3 rolls, keep the best)</button>'+(c.diceLocked&&window.__isAdmin?'<button data-sh="unlockdice">Unlock dice</button>':'')+'<button data-sh="fillbg"'+(race&&c.bg?'':' disabled')+'>Fill bases from background</button></div>'+dice3Html(c)+'</div>';
   h+='<div class="shbox"><h5>Character Appearance / Traits</h5><textarea data-s="look" rows="5">'+esc(c.look||"")+'</textarea></div>';
   h+='<div class="shstat"><div><b>Experience (unspent)</b>'+nv("xp")+'</div><div><b>Adventurer Level</b>'+shO("al","big")+'</div><div><b>HP</b>'+shO("hp","big")+'</div><div><b>MP</b>'+shO("mp","big")+'</div><div><b>Vitality Resist</b>'+shO("fort","big")+'</div><div><b>Mental Resist</b>'+shO("will","big")+'</div></div>';
   /* feats */
-  h+='<div class="shbox"><h5>Combat Feats</h5><div class="tiny">Slots: <span data-o="used"></span> used of <span data-o="slots"></span> (a new slot at each odd Adventurer Level). Auto-acquired feats are listed below and do not use a slot.</div><table class="shtab ft"><thead><tr><th>Lv</th><th>Combat Feats</th><th>Effect Summary</th></tr></thead><tbody>';
-  for(var i=0;i<8;i++){h+='<tr><td>'+(i*2+1)+'</td><td><input list="featDL" data-s="feats.'+i+'" value="'+esc((c.feats||[])[i]||"")+'"></td><td><input data-s="fx.'+i+'" value="'+esc((c.fx||[])[i]||"")+'"></td></tr>'}
+  h+='<div class="shbox"><h5>Combat Feats</h5><div class="tiny">Slots: <span data-o="used"></span> used of <span data-o="slots"></span> (a new slot at each odd Adventurer Level). Auto-acquired feats are listed below and do not use a slot.</div><table class="shtab ft"><thead><tr><th>Order</th><th>Combat Feats</th><th>Effect Summary</th></tr></thead><tbody>';
+  for(var i=0;i<8;i++){h+='<tr><td class="ord">'+(i+1)+'<button data-sh="fup" data-i="'+i+'" aria-label="Move up"'+(i?'':' disabled')+'>&#9650;</button><button data-sh="fdn" data-i="'+i+'" aria-label="Move down"'+(i<7?'':' disabled')+'>&#9660;</button></td><td><input list="featDL" data-s="feats.'+i+'" value="'+esc((c.feats||[])[i]||"")+'"></td><td><input data-s="fx.'+i+'" value="'+esc((c.fx||[])[i]||"")+'"></td></tr>'}
   h+='</tbody></table><div class="tiny"><b>Weapon proficiency:</b> an A feat adds +1 damage and allows A-rank weapons of that category; S adds +2 more (total +3) and allows S-rank (needs A in the same category and Adventurer Level 5). Each takes a feat slot.</div><div id="profBox"></div><div class="row" style="gap:6px;margin-top:4px"><select id="profCat">'+WCATS.map(function(x){return '<option>'+x+'</option>'}).join("")+'</select><select id="profRank"><option value="A">A (+1)</option><option value="S">S (+3 total)</option></select><button data-sh="addprof">Add proficiency</button></div><p class="tiny"><b>Auto-acquired:</b> <span data-o="auto"></span></p><datalist id="featDL">'+FEATS.map(function(f){return '<option value="'+esc(f[0])+'">'}).join("")+'</datalist></div>';
   h+='<div class="shbox"><h5>Combat Feat Library (CR I, II and III)</h5><div class="tiny">Passive feats are always on, Active feats are declared on your turn, and Major Action feats cost your Major Action. Add puts a feat in the first empty row above. It warns, but does not block, if prerequisites are not met. Weapon and Armor Proficiency are added in the box above.</div><div class="row" style="gap:6px"><select id="fType"><option value="all">All types</option><option value="P">Passive</option><option value="A">Active</option><option value="M">Major Action</option></select><input id="fQ" type="search" placeholder="Search feats" style="flex:1;min-width:120px"></div><div id="fList" class="scroll" style="max-height:280px;overflow-y:auto"></div></div>';
   /* skills */
@@ -1441,11 +1466,11 @@ function shRender(){
   h+='<div class="shbox"><h5>Magic Power (per spellcasting skill)</h5><div data-o="magic"></div><div class="tiny">Level + Intelligence bonus for each class marked MP in the Party tab.</div></div>';
   h+='<div class="shbox"><div class="row" style="gap:12px;flex-wrap:wrap"><label>Current HP'+nv("hpNow",64)+'</label><span class="tiny">max <span data-o="hp"></span></span><label>Current MP'+nv("mpNow",64)+'</label><span class="tiny">max <span data-o="mp"></span></span><span class="tiny">Vitality Resist <span data-o="fort"></span> &middot; Mental Resist <span data-o="will"></span></span></div></div>';
   h+='<div class="shbox"><h5>Combat Memo (status effects received)</h5><textarea data-s="memo" rows="3">'+esc(c.memo||"")+'</textarea></div>';
-  h+='<div class="shbox"><h5>Inventory / Items</h5><textarea data-s="inv" rows="6">'+esc(c.inv||"")+'</textarea></div>';
+  h+=invPanel(c);
   h+='<div class="shbox"><div class="row" style="gap:12px;flex-wrap:wrap"><label>Honor points'+nv("honor",70)+'</label><label>Rank'+tv("rank")+'</label><label>Cash (G)'+nv("cash",90)+'</label><label>Savings / Debt (G)'+nv("sav",90)+'</label></div></div>';
   /* power table */
   h+='<div class="shbox"><h5>Power Table</h5><div class="scroll"><table class="shtab pt"><thead><tr><th>Power</th>'+[2,3,4,5,6,7,8,9,10,11,12].map(function(n){return '<th>'+n+'</th>'}).join("")+'</tr></thead><tbody>'+[0,5,10,15,20,25,30,35,40,45,50].map(function(p){return '<tr><th>'+p+'</th><td>*</td>'+PT[p].map(function(v){return '<td>'+v+'</td>'}).join("")+'</tr>'}).join("")+'</tbody></table></div></div></div>';
-  box.innerHTML=h;
+  box.innerHTML=h;tagSheet(box);
   profList(c);var ft=$("fType"),fq=$("fQ");if(ft){ft.value=FT;fq.value=FQ;$("fList").innerHTML=featLib(c)}shRefresh();
 }
 var FEATS=[["Chain Attack","M","Grappler (granted automatically)","Make an extra Punch or Kick attack as part of the same Major Action (not Throw). Each attack is rolled separately and cannot be combined with an active combat feat.","CR I",0,["Grappler"],1,[]],["Guardian I","P","Adventurer Lv 5, [Cover I]","Cover up to 3 targets at once.","CR I",5,[],0,["Cover I"]],["Dodge","P","None (needs a shield)","Each Evasion success with a shield up lowers your next melee attack's Critical Threshold by 1 (minimum 8).","CR I",0,[],0,[]],["Evasive Maneuvers I","P","Adventurer Lv 3","Evasion checks +1.","CR I",3,[],0,[]],["Tenacity","P","Fighter, Grappler or Fencer Lv 5","Maximum HP +15.","CR I",0,["Fighter","Grappler","Fencer"],5,[]],["Twin Strike","P","[Dual Wielding]","Accuracy checks can be made against multiple targets when dual wielding.","CR I",0,[],0,["Dual Wielding"]],["Targeting","P","None","Your shots and spells do not stray into allies when you fire at an enemy in melee.","CR I",0,[],0,[]],["Hawk Eye","P","[Targeting]","You can target enemies hidden behind a shielded area.","CR I",0,[],0,["Targeting"]],["Improved Throw I","P","Grappler Lv 3","Throw gets +10 power and can hit up to two sections of a multi-section enemy.","CR I",0,["Grappler"],3,[]],["Dual Technique","P","Adventurer Lv 5","Removes the Accuracy penalty for [Dual Wielding].","CR I",5,[],0,[]],["Stomp","P","Grappler Lv 5","After a successful Throw, make an extra Kick attack.","CR I",0,["Grappler"],5,[]],["Ever-Changing I","P","Grappler or Fencer Lv 5","Declare 2 active combat feats per round.","CR I",0,["Grappler","Fencer"],5,[]],["Metamagic Master","P","[Universal Metamagic]","Choose a different Metamagic combination for each target.","CR I",0,[],0,["Universal Metamagic"]],["Dual Wielding","P","None","Wield a one-handed weapon in each hand.","CR I",0,[],0,[]],["MP Save/**","P","Adventurer Lv 5","Choose one magic system: its spells cost 1 less MP.","CR I",5,[],0,[]],["Infight I","A","Grappler Lv 5 (Grappler class)","Pick a single target: Accuracy +2, but you can attack no one else and Evasion is -2.","CR I",0,["Grappler"],5,[]],["Decoy Attack I","A","None","One melee attack: Accuracy -2, damage +2; if evaded, the enemy gets -1 Evasion (stacks to -4).","CR I",0,[],0,[]],["Cover I","A","None","Take attacks meant for an ally for 1 round. Can be declared in Combat Preparation.","CR I",0,[],0,[]],["Repeated Strike I","A","None","If an attack is evaded, make one extra attack.","CR I",0,[],0,[]],["Aimed Attack I","A","None","Accuracy +1, Critical Threshold +1.","CR I",0,[],0,[]],["Power Strike I","A","None","Melee attack damage +4.","CR I",0,[],0,[]],["Taunting Strike I","A","None","Draw enemy attacks to you; your damage -2.","CR I",0,[],0,[]],["Defensive Stance","A","None","Evasion, Fortitude or Willpower +4 (declare before the check).","CR I",0,[],0,[]],["Cleave I","A","Fighter Lv 3","Attack up to 3 targets with damage -3.","CR I",0,["Fighter"],3,[]],["Violentcast I","A","None","Spellcasting check +2 for a damaging spell.","CR I",0,[],0,[]],["Lethal Strike I","A","None","Melee attack: Power Table roll +1.","CR I",0,[],0,[]],["Metamagic/Power Assurance","A","None","If the damage roll is 4 or less, reroll once.","CR I",0,[],0,[]],["Metamagic/Accuracy","A","None","Roll the Spellcasting check twice and keep the better.","CR I",0,[],0,[]],["Metamagic/Targets","A","None","Increase a spell's number of targets.","CR I",0,[],0,[]],["Metamagic/Distance","A","None","Increase a spell's range.","CR I",0,[],0,[]],["Metamagic/Time","A","None","Extend a spell's duration.","CR I",0,[],0,[]],["Metamagic/Area","A","None","Extend a spell's area.","CR I",0,[],0,[]],["Universal Metamagic","A","Any [Metamagic/**]","Use any combination of Metamagic feats.","CR I",0,[],0,[]],["Magic Convergence","A","None","Change the next spell's target to a single character.","CR I",0,[],0,[]],["Magic Control","A","[Targeting], [Magic Convergence]","Exclude chosen targets from the next spell's effect.","CR I",0,[],0,["Targeting","Magic Convergence"]],["Mana Strike","A","None","Add your Magic Power to melee attack damage.","CR I",0,[],0,[]],["Multi-Action","A","Adventurer Lv 5","Make a melee attack and cast a spell in the same turn.","CR I",5,[],0,[]],["Armor Piercer I","A","None","Treat the target's Defense as half; Critical Threshold +1.","CR I",0,[],0,[]],["Snipe","M","None (Marksman, 2H ranged weapon)","Aim as a Major Action; your next shooting attack deals double damage if you beat the target's Evasion by 3 or more.","CR I",0,[],0,[]],["Wordbreak","M","None","Remove one spell or effect (Range: Touch, 1 spell).","CR I",0,[],0,[]],["Armor Proficiency A/Nonmetal Armor","P","None","Wear A-rank armor of that category (Defense +1 to some effects; see book).","CR I",0,[],0,[]],["Armor Proficiency A/Metal Armor","P","None","Wear A-rank armor of that category (Defense +1 to some effects; see book).","CR I",0,[],0,[]],["Armor Proficiency A/Shield","P","None","Wear A-rank armor of that category (Defense +1 to some effects; see book).","CR I",0,[],0,[]],["Armor Proficiency S/Nonmetal Armor","P","[Armor Proficiency A/Nonmetal Armor], Adventurer Lv 5","Wear S-rank armor of that category.","CR I",5,[],0,["Armor Proficiency A/Nonmetal Armor"]],["Armor Proficiency S/Metal Armor","P","[Armor Proficiency A/Metal Armor], Adventurer Lv 5","Wear S-rank armor of that category.","CR I",5,[],0,["Armor Proficiency A/Metal Armor"]],["Armor Proficiency S/Shield","P","[Armor Proficiency A/Shield], Adventurer Lv 5","Wear S-rank armor of that category.","CR I",5,[],0,["Armor Proficiency A/Shield"]],["Footwork","P","Adventurer Lv 9","Move up to 10 m with a Limited Move.","CR II",9,[],0,[]],["Guardian II","P","[Guardian I], Adventurer Lv 9","Cover up to 5 targets at once.","CR II",9,[],0,["Guardian I"]],["Evasive Maneuvers II","P","[Evasive Maneuvers I], Fencer Lv 9 (Fencer class)","Evasion checks +2.","CR II",0,["Fencer"],9,["Evasive Maneuvers I"]],["Archer's Grace","P","Marksman Lv 7","Use Marksman level for Evasion checks.","CR II",0,["Marksman"],7,[]],["Intense Finale","P","Bard Lv 3","Finale Power +10.","CR II",0,["Bard"],3,[]],["Additional Songs I","P","Bard Lv 1","Learn one more Spellsong or Finale.","CR II",0,["Bard"],1,[]],["Additional Songs II","P","[Additional Songs I], Bard Lv 7","Learn another Spellsong or Finale (two extra in total).","CR II",0,["Bard"],7,["Additional Songs I"]],["Throwing I","P","None","Throw potions and similar items as attacks (potion balls).","CR II",0,[],0,[]],["Throwing II","P","[Throwing I], Adventurer Lv 5","Extend thrown attack range to 20 m.","CR II",5,[],0,["Throwing I"]],["Super Tenacity","P","[Tenacity], Fighter or Grappler Lv 7","Maximum HP +15 more (30 total).","CR II",0,["Fighter","Grappler"],7,["Tenacity"]],["Special Instrument Proficiency","P","Bard Lv 1","Equip and use special instruments.","CR II",0,["Bard"],1,[]],["Flying Kick","P","Grappler Lv 9","Move 10 m or more with a Normal Move and attack with a Kick.","CR II",0,["Grappler"],9,[]],["Improved Throw II","P","[Improved Throw I], Grappler Lv 9","Throw can hit up to 3 sections.","CR II",0,["Grappler"],9,["Improved Throw I"]],["Harmony","P","Bard Lv 5","Apply a Pet effect and your own Spellsong at the same time.","CR II",0,["Bard"],5,[]],["Block","P","Adventurer Lv 3","Count as twice as many characters when blocking movement or withdrawal.","CR II",3,[],0,[]],["Mako Stones Master","P","Adventurer Lv 9","Use up to two mako stones at once.","CR II",9,[],0,[]],["Marionette","P","Adventurer Lv 5","Control independent golems, fairies and the like.","CR II",5,[],0,[]],["Powerful Magic I","P","Two Wizard-type classes at Lv 6","All Magic Power +1.","CR II",0,[],0,[]],["Pinpoint Attack I","P","Adventurer Lv 7","Accuracy +1.","CR II",7,[],0,[]],["Muscle Mystery","P","Enhancer Lv 5","Triple the duration of all Techniques.","CR II",0,["Enhancer"],5,[]],["Infight II","A","[Infight I], Grappler Lv 9","As Infight I but damage +4 as well.","CR II",0,["Grappler"],9,["Infight I"]],["Decoy Attack II","A","[Decoy Attack I], Adventurer Lv 9","As Decoy Attack I but damage +8 and enemy Evasion -2 when evaded.","CR II",9,[],0,["Decoy Attack I"]],["Rhythm Conversion","A","Bard Lv 3","Change one of the generated Rhythms.","CR II",0,["Bard"],3,[]],["Mirage Arrow","A","Marksman Lv 9","Make two thrown or bow attacks and take the better result.","CR II",0,["Marksman"],9,[]],["Cover II","A","[Cover I], Adventurer Lv 7","Cover separately from other active feats, once per round.","CR II",7,[],0,["Cover I"]],["Nerve Strike","A","Grappler Lv 9","The target's physical damage is -8.","CR II",0,["Grappler"],9,[]],["Repeated Strike II","A","[Repeated Strike I] (see book for level)","As Repeated Strike I but the extra attack deals +4 damage.","CR II",0,[],0,["Repeated Strike I"]],["Critical Cast I","A","Adventurer Lv 7","Spell Critical Threshold -1.","CR II",7,[],0,[]],["Aimed Attack II","A","[Aimed Attack I], Adventurer Lv 7","Accuracy +2.","CR II",7,[],0,["Aimed Attack I"]],["Confident Performer","A","Bard Lv 3","Finale can critical (see book).","CR II",0,["Bard"],3,[]],["Skillful Play","A","Bard Lv 7","Make two Performance checks and keep one.","CR II",0,["Bard"],7,[]],["Power Strike II","A","[Power Strike I] (see book for level)","Melee attack damage +12.","CR II",0,[],0,["Power Strike I"]],["Double Cast","A","Wizard-type class Lv 9","Cast an additional spell with Magic Power -10.","CR II",0,[],0,[]],["Taunting Strike II","A","[Taunting Strike I], Fencer Lv 7","Stronger Taunting Strike (see book).","CR II",0,["Fencer"],7,["Taunting Strike I"]],["Tail Swing I","A","Adventurer Lv 3 (needs a tail)","Attack up to 3 targets with your tail, Accuracy -1.","CR II",3,[],0,[]],["Tail Swing II","A","[Tail Swing I], Adventurer Lv 9","As Tail Swing I but up to 5 targets.","CR II",9,[],0,["Tail Swing I"]],["Cleave II","A","[Cleave I], Fighter Lv 9","As Cleave I, up to 5 targets.","CR II",0,["Fighter"],9,["Cleave I"]],["Lethal Strike II","A","[Lethal Strike I], Adventurer Lv 7","Power Table roll +2 on melee attacks (see book).","CR II",7,[],0,["Lethal Strike I"]],["Armor Piercer II","A","[Armor Piercer I], Grappler Lv 9","Critical Threshold +1 more (see book).","CR II",0,["Grappler"],9,["Armor Piercer I"]],["Capacity","P","Adventurer Lv 11","Maximum MP +15 (not for Grassrunners).","CR III",11,[],0,[]],["Additional Songs III","P","[Additional Songs II], Adventurer Lv 13","Learn another Spellsong or Finale (three extra in total).","CR III",13,[],0,["Additional Songs II"]],["Peerless Double Swords","P","Adventurer Lv 11","Removes the minimum Strength limit of [Dual Wielding].","CR III",11,[],0,[]],["Enhanced Evocations I","P","Alchemist Lv 3","Evocation checks +1.","CR III",0,["Alchemist"],3,[]],["Enhanced Evocations II","P","[Enhanced Evocations I], Alchemist Lv 9","Evocation checks +2.","CR III",0,["Alchemist"],9,["Enhanced Evocations I"]],["Distant Evocations","P","Alchemist Lv 5","Extend Evocation range.","CR III",0,["Alchemist"],5,[]],["Ever-Changing II","P","[Ever-Changing I], Adventurer Lv 13","Declare 3 active combat feats per round.","CR III",13,[],0,["Ever-Changing I"]],["Powerful Magic II","P","[Powerful Magic I], Adventurer Lv 11, two Wizard-type classes at Lv 10","All Magic Power +2.","CR III",11,[],0,["Powerful Magic I"]],["Pinpoint Attack II","P","[Pinpoint Attack I], Adventurer Lv 13","Accuracy +2.","CR III",13,[],0,["Pinpoint Attack I"]],["Consecutive Evocation","P","Alchemist Lv 5","Use consecutive Evocations with a Major Action (see book).","CR III",0,["Alchemist"],5,[]],["Card Reduction","A","Alchemist Lv 5","An Evocation needs 1 fewer Material Card.","CR III",0,["Alchemist"],5,[]],["Aimed Attack III","A","[Aimed Attack II], Adventurer Lv 11","Accuracy +3.","CR III",11,[],0,["Aimed Attack II"]],["Critical Cast II","A","[Critical Cast I], Adventurer Lv 11","Spell Critical Threshold lowered further (see book).","CR III",11,[],0,["Critical Cast I"]],["Power Strike III","A","[Power Strike II] (see book for level)","Melee attack damage +20.","CR III",0,[],0,["Power Strike II"]],["Violentcast II","A","[Violentcast I], Adventurer Lv 13","Spellcasting check +3 for a damaging spell.","CR III",13,[],0,["Violentcast I"]],["Lethal Strike III","A","[Lethal Strike II], Fencer Lv 11","Power Table roll +1 more; ignores critical immunity (see book).","CR III",0,["Fencer"],11,["Lethal Strike II"]],["Armor Piercer III","A","[Armor Piercer II], Grappler Lv 15","Defense is set to 0 on a critical hit (see book).","CR III",0,["Grappler"],15,["Armor Piercer II"]]];
@@ -1503,11 +1528,11 @@ function shRefresh(){
   });
   for(var wi=D.wrows.length;wi<5;wi++){put("w"+wi+"acc","");put("w"+wi+"dmg","");for(var r=0;r<11;r++)put("w"+wi+"r"+r,"");put("w"+wi+"warn","")}
 }
-function openSheet(id){SHEET_ID=id;var oc=getChar(id);if(oc&&!oc.sb&&oc.bg&&applyBg(oc))saveChar(oc);$("sheetView").hidden=false;document.body.classList.add("shopen");shRender();$("sheetBody").scrollTop=0}
-function closeSheet(){$("sheetView").hidden=true;SHEET_ID=null;document.body.classList.remove("shopen");renderChars()}
 function shSave(c){shSaved=Date.now();scoreFrom(c);return saveChar(c)}
 $("sheetBody").addEventListener("change",function(ev){
   var el=ev.target,c=getChar(SHEET_ID);if(!c)return;
+  if(!canAct(c)){shRender();return}
+  if((el.dataset.wf==="pick"||/^(armor|acc|weapons)\.\d+\./.test(el.dataset.s||""))&&!/\.note$/.test(el.dataset.s||"")&&!gearOK(c)){shRender();return}
   if(el.dataset.wf==="pick"){var i=+el.dataset.wp;c.weapons=c.weapons||[];while(c.weapons.length<5)c.weapons.push({});
     var keepCl=c.weapons[i]&&c.weapons[i].cl,keepNote=c.weapons[i]&&c.weapons[i].note;
     var w=el.value?wFind(el.value):null;c.weapons[i]=w?wToRow(w):{};if(w){c.weapons[i].cl=keepCl||"";c.weapons[i].note=keepNote||""}
@@ -1520,17 +1545,20 @@ $("sheetBody").addEventListener("change",function(ev){
     else setPath(c,p,v);
     if(p==="bg")applyBg(c);
     shSave(c);
-    if(p==="accCls"||p==="evaCls"||p==="name"||p==="bg"){shRender()}else shRefresh();
+    if(p==="accCls"||p==="evaCls"||p==="name"||p==="bg"||p==="inv"||p==="cash"){shRender()}else shRefresh();
   }
 });
 $("sheetBody").addEventListener("input",function(ev){var el=ev.target;if(el.id==="fQ"||el.id==="fType"){FQ=$("fQ").value;FT=$("fType").value;var c=getChar(SHEET_ID);if(c)$("fList").innerHTML=featLib(c)}});
 $("sheetBody").addEventListener("change",function(ev){if(ev.target.id==="fType"){FT=ev.target.value;var c=getChar(SHEET_ID);if(c)$("fList").innerHTML=featLib(c)}});
-$("sheetView").addEventListener("click",function(ev){
+$("sheetBody").addEventListener("click",function(ev){
   var el=ev.target.closest&&ev.target.closest("[data-sh]");if(!el)return;var c=getChar(SHEET_ID),f=el.dataset.sh;
-  if(f==="close"){closeSheet();return}
-  if(f==="print"){window.print();return}
   if(!c)return;
-  if(f==="rolldice"){c.dice=c.dice||{};var F=DICEF[c.race]||DICEF.human;["a","b","c","d","e","f"].forEach(function(k,i){var f=F[i];c.dice[k]=f[0]*0+(function(){var t=f[2]||0;for(var n=0;n<f[0];n++)t+=d6();return t})()});shSave(c);shRender();setStatus("Rolled the six ability dice for "+c.name+". Check the growth and bases.")}
+  if(f==="rolldice"){if(c.diceLocked&&!window.__isAdmin){setStatus("The dice are locked. Ask the DM to unlock them.");return}
+    c.dice=c.dice||{};c.dice3=c.dice3||{};var F=DICEF[c.race]||DICEF.human;
+    ["a","b","c","d","e","f"].forEach(function(k,i){var fm=F[i],best=0,all=[];for(var r=0;r<3;r++){var t=fm[2]||0;for(var n=0;n<fm[0];n++)t+=d6();all.push(t);if(t>best)best=t}c.dice[k]=best;c.dice3[k]=all});
+    c.diceLocked=true;shSave(c);shRender();var lg=["a","b","c","d","e","f"].map(function(k){return k.toUpperCase()+" "+c.dice3[k].join("/")+" keep "+c.dice[k]}).join(", ");slog(c.name+" rolled the ability dice three times each and kept the best: "+lg+".");setStatus("Rolled A to F three times each for "+c.name+" and kept the highest. The dice are now locked.")}
+  else if(f==="unlockdice"){if(window.__isAdmin){c.diceLocked=false;shSave(c);shRender();slog("The DM unlocked "+c.name+"'s ability dice.")}}
+  else if(f==="fup"||f==="fdn"){var fi=+el.dataset.i,fj=f==="fup"?fi-1:fi+1;c.feats=c.feats||[];c.fx=c.fx||[];if(fj>=0&&fj<8){var t1=c.feats[fi]||"",t2=c.fx[fi]||"";c.feats[fi]=c.feats[fj]||"";c.fx[fi]=c.fx[fj]||"";c.feats[fj]=t1;c.fx[fj]=t2;shSave(c);shRender()}}
   else if(f==="fillbg"){var r=RACE[c.race],b=r&&r.bg.filter(function(x){return x[1]===c.bg})[0];if(b&&b[3]){var p=String(b[3]).split("/").map(Number);c.sb={tech:p[0]||0,body:p[1]||0,mind:p[2]||0};shSave(c);shRender()}}
   else if(f==="addfeat"){featAdd(c,el.dataset.n)}
   else if(f==="addprof"){var cat=$("profCat").value,rk=$("profRank").value;c.prof=c.prof||{};if(rk==="S"&&!c.prof[cat]&&false){}c.prof[cat]=rk;shSave(c);shRender()}
@@ -1549,23 +1577,29 @@ function cardHtml(c){
   var bgopts='<option value="">'+(race?'Choose a background':'Pick a race first')+'</option>'+(race?race.bg.map(function(b){return '<option value="'+esc(b[1])+'"'+(b[1]===c.bg?' selected':'')+'>'+esc(b[1])+' (2d: '+b[0]+')</option>'}).join(""):"");
   var ab=ABIL.map(function(p){return '<label>'+p[1]+' <span class="tiny">mod '+mod(a[p[0]])+'</span><input data-a="'+p[0]+'" type="number" min="0" value="'+esc(a[p[0]]||0)+'"'+(c.sb&&c.dice&&+c.dice[DICEKEY[p[0]]]>0?' disabled title="Calculated on the character sheet from base + die + growth"':'')+'></label>'}).join("")+((c.sb&&c.dice&&+c.dice.a>0)?'<div class="tiny" style="grid-column:1/-1">Scores are calculated on the character sheet (base + die + growth). Edit them there.</div>':'');
   return '<div class="card" data-id="'+esc(c.id)+'"><h3>'+esc(c.name||"New character")+(race?' <span class="tiny">'+race.name+(c.bg?' &middot; '+esc(c.bg):'')+'</span>':'')+'</h3>'+
-   '<div class="fields"><label>Name<input data-k="name" value="'+esc(c.name)+'"></label><label>Player<input data-k="player" value="'+esc(c.player)+'"></label><label>Race<select data-k="race">'+ropts+'</select></label><label>Design<select data-k="design">'+dopts+'</select></label><label>Background <span class="row" style="gap:4px;flex-wrap:nowrap"><select data-k="bg" style="flex:1">'+bgopts+'</select><button type="button" data-f="broll" title="Roll 2d6 on the background table for this race"'+(race?'':' disabled')+'>Roll 2d6</button></span></label><label>Art style<select data-k="pstyle">'+sopts+'</select></label><label>Unspent XP<input data-k="xp" type="number" min="0" value="'+esc(c.xp||0)+'"></label></div>'+
+   '<div data-g="info">'+'<div class="fields"><label>Name<input data-k="name" value="'+esc(c.name)+'"></label><label>Player<input data-k="player" value="'+esc(c.player)+'"></label><label>Unspent XP<input data-k="xp" type="number" min="0" value="'+esc(c.xp||0)+'"></label></div>'+
+   '<div class="stats"><div><b>Adv Lv</b>'+d.al+'</div><div><b>HP</b>'+d.hp+'</div><div><b>MP</b>'+d.mp+'</div><div><b>Fort</b>'+d.fort+'</div><div><b>Will</b>'+d.will+'</div><div><b>Move</b>'+d.move+'/'+d.full+'</div>'+d.wiz.map(function(w){return '<div><b>Magic '+esc(w.n)+'</b>'+w.v+'</div>'}).join("")+'</div>'+
+   '<div class="row" style="gap:8px;flex-wrap:wrap;align-items:center"><span class="portwrap">'+portraitImg(c,48)+'</span><label>Portrait<input type="file" accept="image/*" data-f="portrait"></label>'+(c.portrait?'<button data-f="noport">Remove portrait</button>':'')+'<span class="tiny">Control: '+(c.owner?(c.owner===me?'you':'another player'):'anyone')+'</span>'+(me&&c.owner!==me&&!c.owner?'<button data-f="claim">Claim this hero</button>':'')+(me&&c.owner===me?'<button data-f="release">Release</button>':'')+'<span class="tiny">Rest:</span><button data-f="rest3">3 h</button><button data-f="rest6">6 h</button><button data-f="newday">New day</button><span class="tiny">'+(+c.sleptH||0)+'/6 h today</span></div>'+
+   '<label>Notes (feats, gear, G)<textarea data-k="notes" rows="2">'+esc(c.notes)+'</textarea></label><div class="row"><button data-f="sheet" class="primary">Open character sheet</button><button data-f="del">Remove</button></div></div>'+
+   '<div data-g="race">'+'<div class="fields"><label>Race<select data-k="race">'+ropts+'</select></label><label>Design<select data-k="design">'+dopts+'</select></label><label>Background <span class="row" style="gap:4px;flex-wrap:nowrap"><select data-k="bg" style="flex:1">'+bgopts+'</select><button type="button" data-f="broll" title="Roll 2d6 on the background table for this race"'+(race?'':' disabled')+'>Roll 2d6</button></span></label><label>Art style<select data-k="pstyle">'+sopts+'</select></label></div>'+
    (c.bg&&BGINFO[c.bg]?'<div class="bginfo tiny"><b>'+esc(c.bg)+':</b> '+BGINFO[c.bg]+(function(){var b=race&&race.bg.filter(function(x){return x[1]===c.bg})[0];return b?' <i>Starting class: '+esc(b[2])+'. Skill/Body/Mind '+esc(b[3])+'. XP '+esc(b[4])+'.</i>':''})()+'</div>':'<div class="tiny">A background is who you were before adventuring: it sets your starting class and base scores. Pick one above, or press Roll 2d6.</div>')+
    (race?raceHtml(race,u,c):'<div class="tiny">Pick a race to see its portrait and abilities.</div>')+
-   '<div class="stats"><div><b>Adv Lv</b>'+d.al+'</div><div><b>HP</b>'+d.hp+'</div><div><b>MP</b>'+d.mp+'</div><div><b>Fort</b>'+d.fort+'</div><div><b>Will</b>'+d.will+'</div><div><b>Move</b>'+d.move+'/'+d.full+'</div>'+d.wiz.map(function(w){return '<div><b>Magic '+esc(w.n)+'</b>'+w.v+'</div>'}).join("")+'</div>'+
-   '<details data-ui="abil"'+(u.abil?' open':'')+'><summary>Abilities and classes</summary><div class="fields" style="margin:8px 0">'+ab+'</div>'+cls+'<div class="row" style="margin-top:6px;gap:6px"><select data-f="cnew">'+CLASSES.map(function(n){return '<option'+(n===u.newCls?' selected':'')+'>'+n+'</option>'}).join("")+'</select><button data-f="ca">Learn class (level 1 XP cost)</button></div><label class="row" style="gap:6px;margin-top:4px"><input type="checkbox" data-k="created"'+(c.created?' checked':'')+'> Character creation finished (lifts the level 2 cap)</label><div class="tiny">Class levels cost XP: raising a level subtracts its cost from Unspent XP, and lowering a level gives nothing back. While the character is being created no class can go above level 2; after that the limit is 15 and the XP you have. Tick MP class for Sorcerer, Conjurer, Priest, Fairy Tamer, Artificer or any other class that adds to MP.'+(c.race==="grassrunner"?' Grassrunners cannot have MP.':'')+'</div></details>'+
-   '<div class="row" style="gap:8px;flex-wrap:wrap;align-items:center"><span class="portwrap">'+portraitImg(c,48)+'</span><label>Portrait<input type="file" accept="image/*" data-f="portrait"></label>'+(c.portrait?'<button data-f="noport">Remove portrait</button>':'')+'<span class="tiny">Control: '+(c.owner?(c.owner===me?'you':'another player'):'anyone')+'</span>'+(me&&c.owner!==me&&!c.owner?'<button data-f="claim">Claim this hero</button>':'')+(me&&c.owner===me?'<button data-f="release">Release</button>':'')+(c.race==="lykant"?'<label class="row" style="gap:4px"><input type="checkbox" data-f="beast"'+(c.beast?' checked':'')+'> Beast Form (STR +2; no Truespeech, Spiritualism or Magitech spells)</label>':'')+'<span class="tiny">Rest:</span><button data-f="rest3">3 h</button><button data-f="rest6">6 h</button><button data-f="newday">New day</button><span class="tiny">'+(+c.sleptH||0)+'/6 h today</span></div>'+
-   '<label>Notes (feats, gear, G)<textarea data-k="notes" rows="2">'+esc(c.notes)+'</textarea></label><div class="row"><button data-f="sheet" class="primary">Open character sheet</button><button data-f="del">Remove</button></div></div>';
+   (c.race==="lykant"?'<label class="row" style="gap:4px"><input type="checkbox" data-f="beast"'+(c.beast?' checked':'')+'> Beast Form (STR +2; no Truespeech, Spiritualism or Magitech spells)</label>':'')+'</div>'+
+   '<div data-g="abil">'+'<h4 class="abh">Abilities and classes</h4><div><div class="fields" style="margin:8px 0">'+ab+'</div>'+cls+'<div class="row" style="margin-top:6px;gap:6px"><select data-f="cnew">'+CLASSES.map(function(n){return '<option'+(n===u.newCls?' selected':'')+'>'+n+'</option>'}).join("")+'</select><button data-f="ca">Learn class (level 1 XP cost)</button></div><label class="row" style="gap:6px;margin-top:4px"><input type="checkbox" data-k="created"'+(c.created?' checked':'')+'> Character creation finished (lifts the level 2 cap)</label><div class="tiny">Class levels cost XP: raising a level subtracts its cost from Unspent XP, and lowering a level gives nothing back. While the character is being created no class can go above level 2; after that the limit is 15 and the XP you have. Tick MP class for Sorcerer, Conjurer, Priest, Fairy Tamer, Artificer or any other class that adds to MP.'+(c.race==="grassrunner"?' Grassrunners cannot have MP.':'')+'</div></div>'+'</div></div>';
 }
 var pendingRender=false;
 function renderChars(){
   if(window.__sceneRedraw)window.__sceneRedraw();
   try{chars.forEach(function(c){if(grantAutoFeats(c))saveChar(c)})}catch(e){}
   try{renderCombat();renderShop()}catch(e){}
-  if(SHEET_ID&&!$("sheetView").hidden&&Date.now()-shSaved>1500){var fe=document.activeElement; if(!(fe&&$("sheetBody").contains(fe)&&/^(INPUT|TEXTAREA|SELECT)$/.test(fe.tagName)))shRender()}
-  var h=chars.length?chars.map(cardHtml).join(""):'<div class="empty">No characters yet. Add one, or have each player add theirs. Easy Creation sheets from the book work fine.</div>';
-  var focus=document.activeElement; if(focus&&$("chars").contains(focus)&&/^(INPUT|TEXTAREA|SELECT)$/.test(focus.tagName)){pendingRender=true;return} pendingRender=false;
-  var sy=$("p-party").scrollTop; var top=window.scrollY; $("chars").innerHTML=h; refreshPickers();
+  var a=advChar(),fe=document.activeElement;
+  if(fe&&($("chars").contains(fe)||$("sheetBody").contains(fe))&&/^(INPUT|TEXTAREA|SELECT)$/.test(fe.tagName)){pendingRender=true;try{renderGroup();renderGinv()}catch(e){}return}
+  pendingRender=false;
+  if(a&&canAct(a)&&!a.diceLocked&&a.dice&&+a.dice.a>0){a.diceLocked=true;saveChar(a)}
+  $("chars").innerHTML=a?cardHtml(a):'<div class="empty">No adventurers yet. Add one, or have each player add theirs.</div>';
+  SHEET_ID=a?a.id:null;
+  if(a){if(Date.now()-shSaved>1500)shRender()}else $("sheetBody").innerHTML="";
+  refreshPickers();advAfter();
   var aside=document.querySelector("aside.panel"); if(aside&&aside._st!=null){aside.scrollTop=aside._st}
 }
 (function(){var aside=document.querySelector("aside.panel"); if(aside)aside.addEventListener("scroll",function(){aside._st=aside.scrollTop},{passive:true})})();
@@ -1610,9 +1644,10 @@ $("chars").addEventListener("click",function(ev){
   else if(f==="del"){ if(db){db.doc("chars/"+c.id).delete().then(function(){setStatus("")}).catch(function(e){setStatus("Could not remove: "+(e&&e.message||e))})} else {chars=chars.filter(function(x){return x.id!==c.id}); renderChars()} }
 });
 $("chars").addEventListener("focusout",function(){ if(pendingRender)setTimeout(renderChars,60) });
+$("sheetBody").addEventListener("focusout",function(){ if(pendingRender)setTimeout(renderChars,60) });
 $("addChar").onclick=function(){
   var id="c"+Date.now().toString(36); var c={id:id,owner:me||"",name:"New adventurer",player:"",race:"",design:0,pstyle:"pixel",xp:2000,abil:{dex:12,agi:12,str:12,vit:12,int:12,spi:12},classes:[{name:"Fighter",level:1,wiz:false}],notes:""};
-  if(db)saveChar(c); else {chars.push(c);renderChars()}
+  ADV.id=id;ADV.sub="info";if(db)saveChar(c); else {chars.push(c);renderChars()}
 };
 function refreshPickers(){
   var opts=chars.map(function(c){return '<option>'+esc(c.name)+'</option>'}).join("");
@@ -1661,7 +1696,7 @@ $("rollBtn").onclick=function(){
 /* ---------- DM brain ---------- */
 function busy(){return S.busy&&Date.now()-S.busy.at<90000}
 var stPending=0,stDeferred=null;
-function applySnap(d){S=Object.assign({episode:0,sitting:"A",scene:"calm",shards:0,quests:[],summary:"",busy:null,terrain:"road",combat:null},JSON.parse(JSON.stringify(d||{}))); renderQuest(); if(!sceneOver)setScene(S.scene); if($("terrSel"))$("terrSel").value=S.terrain||"road"; if(window.__sceneRedraw)window.__sceneRedraw(); renderCombat();}
+function applySnap(d){S=Object.assign({episode:0,sitting:"A",scene:"calm",shards:0,quests:[],summary:"",busy:null,terrain:"road",combat:null,ginv:null},JSON.parse(JSON.stringify(d||{}))); renderQuest(); try{renderGinv()}catch(e){} if(!sceneOver)setScene(S.scene); if($("terrSel"))$("terrSel").value=S.terrain||"road"; if(window.__sceneRedraw)window.__sceneRedraw(); renderCombat();}
 function saveState(p){Object.assign(S,p); if(!db)return Promise.resolve(); stPending++; return db.doc("state/main").set(JSON.parse(JSON.stringify(S))).catch(function(e){setStatus("Could not save state: "+(e&&e.message||e))}).then(function(){stPending--; if(stPending<=0){stPending=0; if(stDeferred){var d=stDeferred;stDeferred=null;applySnap(d)} else renderCombat()}})}
 function partyText(){return chars.map(function(c){var d=derive(c);return c.name+" ("+(c.player||"player")+", "+(c.race||"?")+"; "+(c.classes||[]).map(function(k){return k.name+" "+k.level}).join(", ")+"; HP "+d.hp+", MP "+d.mp+"; Fort "+d.fort+", Will "+d.will+")"}).join("\n")||"(no characters yet)"}
 function recent(n){return logs.slice(-n).map(function(m){return (m.kind==="dm"?"DM":m.kind==="roll"?"ROLL":m.kind==="coach"?"COACH":m.kind==="sys"?"TABLE":(m.who||"Player"))+": "+m.text}).join("\n")}
@@ -2637,6 +2672,180 @@ $("export").onclick=async function(){
   try{window.SW.download("quiet-aurora-log.txt",txt);return;}catch(e){}
   try{await navigator.clipboard.writeText(txt);setStatus("Log copied to the clipboard.")}catch(e){setStatus("Saving is not available here.")}
 };
+
+/* ---------- stage 1: party sub-tabs, adventurer view, group, group inventory, gear ---------- */
+var ADV={id:null,sub:"info",psub:"adv",giWho:null};
+try{var _sa=localStorage.getItem("sw_adv");if(_sa)ADV.id=_sa}catch(e){}
+function canEdit(c){return canAct(c)}
+function advChar(){
+  var c=getChar(ADV.id);
+  if(!c){c=chars.filter(function(x){return me&&x.owner===me})[0]||chars[0]||null;ADV.id=c?c.id:null}
+  return c}
+function pUi(){
+  ["adv","group","ginv"].forEach(function(k){$("pp-"+k).hidden=ADV.psub!==k;$("ps-"+k).setAttribute("aria-selected",ADV.psub===k)});
+  ["info","abil","race","inv","full"].forEach(function(k){$("as-"+k).setAttribute("aria-selected",ADV.sub===k)});
+  $("pp-adv").dataset.sub=ADV.sub}
+function advSelect(id,sub,psub){
+  ADV.id=id;if(sub)ADV.sub=sub;ADV.psub=psub||"adv";shSaved=0;
+  try{localStorage.setItem("sw_adv",id)}catch(e){}
+  var c=getChar(id);if(c&&!c.sb&&c.bg&&canEdit(c)&&applyBg(c))saveChar(c);
+  pUi();renderChars()}
+function openSheet(id){advSelect(id,"full");tab("party")}
+function advPickerUi(){
+  var sel=$("advPick");if(!sel)return;
+  var list=chars.filter(function(x){return canEdit(x)||x.id===ADV.id});
+  var h=list.map(function(x){return '<option value="'+esc(x.id)+'"'+(x.id===ADV.id?' selected':'')+'>'+esc(x.name||"New adventurer")+(canEdit(x)?'':' (view only)')+'</option>'}).join("");
+  if(sel.innerHTML!==h&&document.activeElement!==sel)sel.innerHTML=h;
+  $("advPickRow").hidden=list.length<2;
+  var c=advChar(),ro=!!c&&!canEdit(c);$("advRO").hidden=!ro}
+function applyRO(){
+  var c=advChar(),ro=!!c&&!canEdit(c);$("pp-adv").classList.toggle("ro",ro);
+  ["chars","sheetBody"].forEach(function(id){var b=$(id);if(!b)return;
+    Array.prototype.forEach.call(b.querySelectorAll("input,select,textarea,button"),function(e){if(ro)e.disabled=true});
+    if(c&&c.diceLocked&&!window.__isAdmin)Array.prototype.forEach.call(b.querySelectorAll('[data-s^="dice."]'),function(e){e.disabled=true})})}
+function advAfter(){
+  pUi();advPickerUi();applyRO();
+  try{renderGroup()}catch(e){}try{renderGinv()}catch(e){}}
+
+$("partySubs").addEventListener("click",function(ev){var b=ev.target.closest&&ev.target.closest("[data-ps]");if(!b)return;ADV.psub=b.dataset.ps;pUi();advAfter()});
+$("advSubs").addEventListener("click",function(ev){var b=ev.target.closest&&ev.target.closest("[data-as]");if(!b)return;ADV.sub=b.dataset.as;pUi()});
+$("advPick").addEventListener("change",function(){advSelect(this.value)});
+$("advPrint").onclick=function(){ADV.sub="full";pUi();document.body.classList.add("pprint");setTimeout(function(){try{window.print()}catch(e){}document.body.classList.remove("pprint")},60)};
+
+/* ---------- inventory line helpers (lines look like "- Healing Potion (30 G) x2") ---------- */
+function lnLines(s){return String(s||"").split("\n").filter(function(x){return x.trim()})}
+function lnBase(l){return String(l).replace(/\sx\d+\s*$/,"").trim()}
+function lnQty(l){var m=String(l).match(/\sx(\d+)\s*$/);return m?+m[1]:1}
+function lnMk(b,q){return q>1?b+" x"+q:b}
+function lnTake(lines,i,n){var l=lines[i],q=lnQty(l),b=lnBase(l),t=Math.max(1,Math.min(n,q));if(q-t>0)lines[i]=lnMk(b,q-t);else lines.splice(i,1);return {base:b,qty:t}}
+function lnPut(lines,b,q){for(var i=0;i<lines.length;i++){if(lnBase(lines[i]).toLowerCase()===b.toLowerCase()){lines[i]=lnMk(lnBase(lines[i]),lnQty(lines[i])+q);return}}lines.push(lnMk(b,q))}
+function lnName(l){return invName(l)}
+
+/* ---------- group view ---------- */
+function gInv(){var g=S.ginv||{};return {inv:String(g.inv||""),gold:Math.max(0,+g.gold||0)}}
+function saveG(inv,gold){return saveState({ginv:{inv:inv,gold:gold}})}
+function renderGroup(){
+  var b=$("pp-group");if(!b||ADV.psub!=="group")return;
+  var gold=gInv().gold,tot=chars.reduce(function(s,c){return s+(+c.cash||0)},0)+gold;
+  var pct=function(v,m){return m>0?Math.max(0,Math.min(100,Math.round(100*v/m))):0};
+  var h='<div class="tiny">'+chars.length+' adventurer'+(chars.length===1?"":"s")+' at the table. Party gold: '+fmt(tot)+' G, including '+fmt(gold)+' G in the group inventory.</div>';
+  h+=chars.length?'<div class="gcards">'+chars.map(function(c){var d=derive(c),hp=curHP(c),mp=curMP(c);
+    return '<div class="card gcard"><div class="row" style="gap:8px;align-items:center;flex-wrap:nowrap"><span class="portwrap">'+portraitImg(c,48)+'</span><div style="min-width:0"><b>'+esc(c.name||"New adventurer")+'</b>'+(me&&c.owner===me?' <span class="chip">you</span>':'')+(c.down?' <span class="chip">down</span>':'')+'<div class="tiny">'+esc((RACE[c.race]||{}).name||"")+(c.bg?' &middot; '+esc(c.bg):'')+'</div><div class="tiny">'+esc((c.classes||[]).map(function(k){return k.name+" "+k.level}).join(", ")||"no class yet")+(c.player?' &middot; '+esc(c.player):'')+'</div></div></div>'+
+      '<div class="tiny">HP '+hp+'/'+d.hp+'</div><div class="bar"><i style="width:'+pct(hp,d.hp)+'%"></i></div>'+(d.mp?'<div class="tiny">MP '+mp+'/'+d.mp+'</div><div class="bar"><i style="width:'+pct(mp,d.mp)+'%;background:var(--teal)"></i></div>':'')+
+      '<div class="tiny">Cash '+fmt(+c.cash||0)+' G</div><div class="row"><button data-gv="'+esc(c.id)+'">View sheet</button></div></div>'}).join("")+'</div>':'<div class="empty">No adventurers yet. Add one from the Adventurer tab.</div>';
+  b.innerHTML=h}
+$("pp-group").addEventListener("click",function(ev){var b=ev.target.closest&&ev.target.closest("[data-gv]");if(b)advSelect(b.dataset.gv,"info")});
+
+/* ---------- group inventory ---------- */
+function renderGinv(){
+  var b=$("pp-ginv");if(!b||ADV.psub!=="ginv")return;
+  var f=document.activeElement;if(f&&b.contains(f)&&f.tagName==="INPUT")return;
+  var g=gInv(),mine=chars.filter(canEdit);
+  if(!chars.length){b.innerHTML='<div class="empty">No adventurers yet.</div>';return}
+  var w=getChar(ADV.giWho);if(!w||!canEdit(w)){var a=advChar();w=(a&&canEdit(a))?a:mine[0];ADV.giWho=w?w.id:null}
+  if(!w){b.innerHTML='<div class="empty">You do not control a character yet. Claim one in the Adventurer tab.</div>';return}
+  var gl=lnLines(g.inv),wl=invLines(w);
+  var row=function(l,i,dir){var q=lnQty(l);return '<div class="itm"><span>'+esc(lnBase(l).replace(/^[-*\s]+/,""))+(q>1?' <b>x'+q+'</b>':'')+'</span><span class="row" style="gap:4px"><button data-gi="'+dir+'" data-i="'+i+'">'+(dir==="take"?"Take":"Put in")+(q>1?" 1":"")+'</button>'+(q>1?'<button data-gi="'+dir+'" data-i="'+i+'" data-all="1">All</button>':'')+'</span></div>'};
+  b.innerHTML='<div class="row" style="gap:10px"><label>Acting as<select id="giWho">'+mine.map(function(x){return '<option value="'+esc(x.id)+'"'+(x.id===w.id?' selected':'')+'>'+esc(x.name||"New adventurer")+'</option>'}).join("")+'</select></label><div class="shpill"><b>Group gold</b> '+fmt(g.gold)+' G</div><div class="shpill"><b>'+esc(w.name)+'</b> '+fmt(+w.cash||0)+' G</div></div>'+
+    '<div class="row" style="gap:6px"><label>Gold<input id="giGold" type="number" min="1" value="" style="width:90px"></label><button data-gi="gput">Put gold in</button><button data-gi="gtake">Take gold out</button></div>'+
+    '<div class="gcols"><div class="shbox"><h5>Group inventory</h5>'+(gl.length?gl.map(function(l,i){return row(l,i,"take")}).join(""):'<div class="tiny">Empty. Put items in from the list on the right.</div>')+'</div>'+
+    '<div class="shbox"><h5>'+esc(w.name)+' carries</h5>'+(wl.length?wl.map(function(l,i){return row(l,i,"put")}).join(""):'<div class="tiny">Nothing carried.</div>')+'</div></div>'+
+    '<div class="tiny">Anyone at the table can add to or take from the group inventory. Every move is written to the story log.</div>'}
+$("pp-ginv").addEventListener("change",function(ev){if(ev.target.id==="giWho"){ADV.giWho=ev.target.value;renderGinv()}});
+$("pp-ginv").addEventListener("click",function(ev){
+  var el=ev.target.closest&&ev.target.closest("[data-gi]");if(!el)return;
+  var w=getChar(ADV.giWho);if(!w||!canEdit(w))return;var g=gInv(),act=el.dataset.gi,gl=lnLines(g.inv),wl=invLines(w);
+  if(act==="take"||act==="put"){
+    var from=act==="take"?gl:wl,to=act==="take"?wl:gl,l=from[+el.dataset.i];if(!l)return;
+    var m=lnTake(from,+el.dataset.i,el.dataset.all?lnQty(l):1);lnPut(to,m.base,m.qty);
+    w.inv=wl.join("\n");saveChar(w);saveG(gl.join("\n"),g.gold);
+    slog(w.name+(act==="take"?" took ":" put ")+(m.qty>1?m.qty+" x ":"")+invName(m.base)+(act==="take"?" from":" into")+" the group inventory.");renderGinv();return}
+  if(act==="gput"||act==="gtake"){
+    var n=Math.floor(+($("giGold").value)||0);if(n<=0){setStatus("Enter an amount of gold first.");return}
+    if(act==="gput"){if((+w.cash||0)<n){setStatus(w.name+" only has "+fmt(+w.cash||0)+" G.");return}w.cash=(+w.cash||0)-n;saveChar(w);saveG(g.inv,g.gold+n);slog(w.name+" put "+fmt(n)+" G into the group inventory.")}
+    else{if(g.gold<n){setStatus("The group inventory only has "+fmt(g.gold)+" G.");return}w.cash=(+w.cash||0)+n;saveChar(w);saveG(g.inv,g.gold-n);slog(w.name+" took "+fmt(n)+" G from the group inventory.")}
+    renderGinv()}
+});
+
+/* ---------- gear and items ---------- */
+var ACCSLOTS=["Head","Face","Ears","Neck","Back","Right Hand","Left Hand","Waist","Feet","Other"];
+function accGuess(n){n=n.toLowerCase();return /hat|helm|circlet|crown|hood|\bcap\b|headband|tiara/.test(n)?0:/veil|glasses|goggle|mask|monocle|eyepatch/.test(n)?1:/ear/.test(n)?2:/necklace|amulet|pendant|choker|collar|scarf|brooch/.test(n)?3:/cloak|cape|mantle|backpack|wings/.test(n)?4:/ring|bracelet|glove|gauntlet|bangle|wrist/.test(n)?5:/belt|pouch|sash/.test(n)?7:/boot|shoe|sandal|anklet|greave/.test(n)?8:9}
+function wByName(n){return WPN.filter(function(w){return w[0]===n})[0]}
+function aByName(n){return ARMORS.filter(function(a){return a[0]===n})[0]}
+function accByName(n){return SHOPITEMS.filter(function(i){return i[0]==="Accessories"&&i[1]===n})[0]}
+function itemKind(n){return aByName(n)?"a":wByName(n)?"w":accByName(n)?"c":"i"}
+function gearOK(c){
+  if(!cbOn())return true;
+  var cb=S.combat;if(cb.cur!==c.id){setStatus("In combat you can only change gear on "+c.name+"'s own turn.");return false}
+  if(!(cb.turn&&cb.turn.gear)){cbSet(function(x){if(x.turn)x.turn.gear=true});slog(c.name+" uses a Minor Action to change gear.")}
+  return true}
+function giveBack(c,line){var ls=invLines(c);lnPut(ls,line,1);c.inv=ls.join("\n")}
+function priced(n,p){return "- "+n+(p?" ("+fmt(p)+" G)":"")}
+function eqItem(c,i,slot){
+  if(!gearOK(c))return;var ls=invLines(c),l=ls[i];if(!l)return;var n=invName(l),k=itemKind(n),note="";
+  if(k==="w"){c.weapons=c.weapons||[];while(c.weapons.length<5)c.weapons.push({});var s=-1;for(var q=0;q<5;q++){if(!c.weapons[q]||!c.weapons[q].n){s=q;break}}
+    if(s<0){setStatus("All five weapon slots are full. Unequip one first.");return}
+    var w=wByName(n);lnTake(ls,i,1);c.inv=ls.join("\n");c.weapons[s]=wToRow(w);c.weapons[s].cl="";c.weapons[s].note="";note=" in weapon slot "+(s+1)}
+  else if(k==="a"){var a=aByName(n),sl=a[1]==="Shield"?1:0;c.armor=c.armor||[{},{},{}];while(c.armor.length<3)c.armor.push({});
+    lnTake(ls,i,1);c.inv=ls.join("\n");var pv=c.armor[sl];if(pv&&pv.n){var pa=aByName(pv.n);giveBack(c,priced(pv.n,pa?pa[6]:0))}
+    c.armor[sl]={n:a[0],str:a[3],eva:a[4],def:a[5],note:a[7]};note=" as their "+(sl?"shield":"armor")}
+  else if(k==="c"){var it=accByName(n);c.acc=c.acc||[];while(c.acc.length<10)c.acc.push({});var si=+slot;if(!(si>=0&&si<10))si=accGuess(n);
+    lnTake(ls,i,1);c.inv=ls.join("\n");var pc=c.acc[si];if(pc&&pc.n){var pi=accByName(pc.n);giveBack(c,priced(pc.n,pi?pi[2]:0))}
+    c.acc[si]={n:n,e:it?it[3]:""};note=" on their "+ACCSLOTS[si].toLowerCase()}
+  else return;
+  shSaved=0;saveChar(c);slog(c.name+" equips "+n+note+".");renderChars()}
+function unequip(c,kind,i){
+  if(!gearOK(c))return;var n="";
+  if(kind==="w"){var w=(c.weapons||[])[i];if(!w||!w.n)return;n=w.n;var wr=wByName(n);giveBack(c,priced(n,wr?wr[9]:0));c.weapons[i]={}}
+  else if(kind==="a"){var a=(c.armor||[])[i];if(!a||!a.n)return;n=a.n;var ar=aByName(n);giveBack(c,priced(n,ar?ar[6]:0));c.armor[i]={}}
+  else{var x=(c.acc||[])[i];if(!x||!x.n)return;n=x.n;var ac=accByName(n);giveBack(c,priced(n,ac?ac[2]:0));c.acc[i]={}}
+  shSaved=0;saveChar(c);slog(c.name+" takes off "+n+" and puts it in their pack.");renderChars()}
+function useOut(c,i){
+  if(cbOn()){setStatus("In combat, use items from the combat panel on your turn.");return}
+  var ls=invLines(c),l=ls[i];if(!l)return;var n=invName(l),d=shopDesc(n),msg="";lnTake(ls,i,1);c.inv=ls.join("\n");
+  var m=d.match(/HP \(Power (\d+)(?:, \+(\d+))?\)/);
+  if(m){var pr=power(+m[1],13,+m[2]||0,0),mx=derive(c).hp,b4=curHP(c);c.hpNow=Math.min(mx,b4+pr.total);if(c.hpNow>0&&c.down)c.down=false;msg=" and recovers "+(c.hpNow-b4)+" HP (rolled "+pr.total+"). HP "+c.hpNow+"/"+mx+"."}
+  else msg=d?". "+d:".";
+  shSaved=0;saveChar(c);slog(c.name+" uses "+n+msg);renderChars()}
+function invPanel(c){
+  var D=compute(c),ls=invLines(c),ro=!canEdit(c);
+  var h='<div class="shbox" data-g="inv"><h5>Weapons</h5>';
+  for(var wi=0;wi<5;wi++){var w=(c.weapons||[])[wi]||{},wr=D.wrows[wi];
+    h+='<div class="invrow"><select data-wp="'+wi+'" data-wf="pick">'+wOptions(w.lbl||"")+'</select>'+(w.n?'<span class="tiny">Power '+esc(w.pow)+', Crit '+esc(w.crit)+(wr?', Acc '+esc(wr.acc)+', Dmg +'+esc(wr.dmg):'')+'</span><button data-ai="uw" data-i="'+wi+'">Unequip</button>':'<span class="tiny">empty</span>')+'</div>'}
+  h+='<div class="tiny">Pick a weapon from the list to equip it for free, or Unequip to put it back in your pack. In combat a change costs your Minor Action on your own turn.</div></div>';
+  h+='<div class="shbox" data-g="inv"><h5>Worn</h5>';
+  var worn=0;(c.armor||[]).forEach(function(a,i){if(a&&a.n){worn++;h+='<div class="itm"><span><b>'+(i===1?'Shield':i===0?'Armor':'Other')+':</b> '+esc(a.n)+' <span class="tiny">Eva '+esc(a.eva||0)+', Def '+esc(a.def||0)+'</span></span><button data-ai="ua" data-i="'+i+'">Unequip</button></div>'}});
+  (c.acc||[]).forEach(function(a,i){if(a&&a.n){worn++;h+='<div class="itm"><span><b>'+ACCSLOTS[i]+':</b> '+esc(a.n)+(a.e?' <span class="tiny">'+esc(a.e)+'</span>':'')+'</span><button data-ai="uc" data-i="'+i+'">Unequip</button></div>'}});
+  h+=(worn?'':'<div class="tiny">Nothing worn yet. Equip armor, shields and accessories from your items below.</div>')+'</div>';
+  h+='<div class="shbox" data-g="inv"><h5>Items</h5><div class="tiny">Cash: <b>'+fmt(+c.cash||0)+' G</b></div>';
+  h+=ls.length?ls.map(function(l,i){var n=invName(l),k=itemKind(n),q=lnQty(l);
+    var btn=k==="i"?'<button data-ai="use" data-i="'+i+'"'+(cbOn()?' disabled title="Use items from the combat panel on your turn"':'')+'>Use</button>':
+      (k==="c"?'<select id="sl'+i+'">'+ACCSLOTS.map(function(s,si){return '<option value="'+si+'"'+(si===accGuess(n)?' selected':'')+'>'+s+'</option>'}).join("")+'</select>':'')+'<button data-ai="eq" data-i="'+i+'">Equip</button>';
+    return '<div class="itm"><span>'+esc(lnBase(l).replace(/^[-*\s]+/,"").replace(/\sx\d+\s*$/,""))+(q>1?' <b>x'+q+'</b>':'')+(shopDesc(n)&&k==="i"?'<span class="tiny"> '+esc(shopDesc(n))+'</span>':'')+'</span><span class="row" style="gap:4px;flex-wrap:nowrap">'+btn+'</span></div>'}).join(""):'<div class="tiny">No items. Buy some in the Shop or loot them in a fight.</div>';
+  h+='<details><summary>Edit the item list as text</summary><textarea data-s="inv" rows="6">'+esc(c.inv||"")+'</textarea></details></div>';
+  return h}
+$("sheetBody").addEventListener("click",function(ev){
+  var el=ev.target.closest&&ev.target.closest("[data-ai]");if(!el)return;var c=getChar(SHEET_ID);if(!c||!canEdit(c))return;
+  var a=el.dataset.ai,i=+el.dataset.i;
+  if(a==="uw")unequip(c,"w",i);else if(a==="ua")unequip(c,"a",i);else if(a==="uc")unequip(c,"c",i);
+  else if(a==="eq"){var s=$("sl"+i);eqItem(c,i,s?s.value:"")}
+  else if(a==="use")useOut(c,i)});
+/* sheet sections -> sub-tab groups */
+function dice3Html(c){var d=c.dice3||{};if(!c.dice3)return '';return '<div class="dice3 tiny"><b>Three rolls (best kept):</b> '+["a","b","c","d","e","f"].map(function(k){var all=d[k]||[],kept=false;return k.toUpperCase()+': '+all.map(function(v){var m=!kept&&v===(c.dice||{})[k];if(m)kept=true;return m?'<b>['+v+']</b>':v}).join(" / ")}).join(" &middot; ")+'</div>'}
+function tagSheet(box){
+  var MAP=[["Ability Scores","race"],["Character Appearance","info"],["Combat Feat Library","abil"],["Combat Feats","abil"],["Skill / Level","abil"],["Frequently Used Spells","abil"],["Background / Other Notes","info"],["Language","race"],["Judgment Packages","abil"],["Base Accuracy","abil"],["Base Evasion","abil"],["Magic Power","abil"],["Combat Memo","info"]];
+  var kids=box.querySelectorAll(".shbox,.shtitle,.shstat");
+  Array.prototype.forEach.call(kids,function(e){
+    if(e.dataset.g||e.closest("[data-g]"))return;
+    var g="full";
+    if(e.classList.contains("shstat"))g="abil";
+    else if(!e.classList.contains("shtitle")){
+      var h=e.querySelector("h5"),t=h?h.textContent:e.textContent;
+      for(var i=0;i<MAP.length;i++){if(t.indexOf(MAP[i][0])===0){g=MAP[i][1];break}}
+      if(g==="full"&&!h){if(/Character Name/.test(t.slice(0,40)))g="info";else if(/^Initiative/.test(t))g="abil";else if(/Current HP/.test(t))g="info";else if(/Honor points/.test(t))g="info"}
+    }
+    e.dataset.g=g});
+}
 
 /* ---------- boot ---------- */
 kindUi(); render(); renderQuest(); refreshPickers();
